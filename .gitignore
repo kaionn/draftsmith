@@ -1,0 +1,6 @@
+# Claude Code runtime state (not part of the plugin)
+.claude/
+.harness-mem/
+
+# OS
+.DS_Store

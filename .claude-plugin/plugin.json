@@ -1,0 +1,23 @@
+{
+  "name": "draftsmith",
+  "version": "1.0.0",
+  "description": "Design-first inner loop for Claude Code: requirements -> design -> audit -> implementation -> light review, one task at a time. A dedicated designer agent drafts, the main session audits, and an implementer applies verbatim briefs.",
+  "author": {
+    "name": "kaionn",
+    "url": "https://github.com/kaionn"
+  },
+  "homepage": "https://github.com/kaionn/draftsmith",
+  "repository": "https://github.com/kaionn/draftsmith",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "design-first",
+    "agents",
+    "workflow",
+    "code-design"
+  ],
+  "skills": [
+    "./skills/"
+  ]
+}
