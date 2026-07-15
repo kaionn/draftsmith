@@ -84,6 +84,23 @@ owns the inner loop of a single task. A working combination:
 The two plugins stay loosely coupled: draftsmith reads a task *description*, never
 harness's internal state.
 
+### Example run
+
+Real cycle against [signal-lab](https://github.com/kaionn/signal-lab) (a Next.js app),
+task: *"make the weekly-digest loader survive missing / unparseable `meta.yaml` files"*:
+
+- **designer** investigated the actual loader, returned a verbatim brief with a
+  traceability table covering all 3 acceptance criteria, plus 2 open questions —
+  each with a proposed default (e.g. "warn on null-parsing meta instead of silently
+  skipping, because the requirement's goal is *noticing* breakage")
+- **audit** passed: every AC mapped, decisions cited the requirement, result matched
+  the pre-dispatch prediction (single-file change, no new files besides fixtures)
+- **implementer** applied the brief; **reviewer-light** returned "no findings" in round 1
+- the final report listed 2 decisions made autonomously, and surfaced a genuine
+  out-of-scope discovery: a sibling loader (`lib/experiments.ts`) shares the same
+  fragility — reported as a follow-up instead of silently fixed (scope guard working
+  as intended). No commit, no push; the diff was left for the human.
+
 ### Related work
 
 [BMAD-METHOD](https://github.com/bmadcode/BMAD-METHOD) ·
@@ -157,6 +174,22 @@ draftsmith は 1 タスクのインナーループを持つ。併用パターン
 
 両者は疎結合。draftsmith が読むのはタスクの「記述」だけで、harness の内部状態には
 依存しない（harness の autoUpdate で壊れない）。
+
+### 実例
+
+[signal-lab](https://github.com/kaionn/signal-lab)（Next.js アプリ）での実サイクル。
+タスクは「weekly-digest のローダーを meta.yaml 欠落・parse 不能に耐えるようにする」:
+
+- **designer** が実ローダーを調査し、受け入れ基準 3 件を全カバーするトレーサビリティ表
+  付きの逐語 brief を return。確認事項 2 件にはそれぞれ提案デフォルト付き
+  （例:「null になる meta は静かにスキップでなく warning を出す。要件の目的は
+  壊れに*気付ける*ことだから」）
+- **監査** 通過: 全 AC がマップ済み・判断は要件を引用・成果物は dispatch 前の予測と一致
+  （fixture を除き単一ファイル変更）
+- **implementer** が brief を適用、**reviewer-light** は 1 ラウンド目で「指摘なし」
+- 完了報告には自律判断 2 件の一覧と、スコープ外の本物の発見が載った: 兄弟ローダー
+  （`lib/experiments.ts`）に同型の脆さがある — 黙って直さずフォローアップとして報告
+  （スコープガードが設計どおり機能）。commit / push はせず、diff は人間に委ねられた
 
 ### 構成
 
