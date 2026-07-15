@@ -2,35 +2,173 @@
 
 Design-first inner loop for Claude Code — 設計ファーストのインナーループを Claude Code に足すプラグイン。
 
-> ⚠️ Work in progress. README will be completed before the first public release.
+One task in, reviewed change out: **requirements → design → audit → implementation → light review**.
 
-## What / これは何
+```mermaid
+flowchart LR
+    R[Requirements<br/>要件正規化] --> D[designer<br/>opus / read-only]
+    D --> A{Audit ×3<br/>監査 3 層}
+    A -- 差し戻し --> D
+    A --> I[implementer<br/>sonnet / verbatim]
+    I --> V[Central verification<br/>format / lint / test]
+    V --> L{reviewer-light}
+    L -- 指摘あり --> I
+    L -- 指摘なし --> F[Report<br/>完了報告<br/>no commit / no push]
+```
 
-One task in, reviewed change out: requirements → design → audit → implementation → light review.
+---
 
-1 タスク分の「要件 → 設計 → 監査 → 実装 → light レビュー」を回す。タスク台帳・PR 作成・push は持たない（そこは [claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) などに任せる）。
+## English
 
-## Install / インストール
+### Why design-first
+
+Letting one agent both design and implement invites two failure modes: design decisions
+made implicitly mid-edit, and reviews that rubber-stamp whatever got written. draftsmith
+splits the loop into three roles with **structurally enforced boundaries**:
+
+- **designer** (opus, high effort) — investigates the codebase and returns a first design.
+  It has **no Edit/Write tools**, so it cannot "just fix it real quick". Its output follows a
+  5-part reply contract: verbatim brief / open questions with proposed defaults /
+  broken-assumption report / traceability table / mini-ADRs for significant decisions only.
+- **main session** — the orderer and auditor. Before dispatch it writes a 2–3 line
+  *falsifiable prediction* of what the design should look like; the audit then checks
+  (1) traceability against every acceptance criterion, (2) that ADRs actually cite the
+  requirements, (3) divergence between prediction and result — a cheap tripwire against
+  rubber-stamp auditing. Overruling the designer requires a written reason and alternative.
+- **implementer** (sonnet) — applies the brief verbatim. No design decisions. If an anchor
+  in the brief doesn't match the file, it skips and reports instead of guessing.
+- **reviewer-light** (sonnet, read-only) — loops until "no findings" across seven generic
+  lenses (correctness, edge cases, semantic redundancy, readability, types, project
+  conventions, tests), with an explicit out-of-scope list so it doesn't fight your linter.
+
+### Install
 
 ```
 /plugin marketplace add kaionn/draftsmith
 /plugin install draftsmith@draftsmith
 ```
 
-## Usage / 使い方
+### Usage
+
+```
+/draftsmith <your requirement in natural language>
+/draftsmith --gated <requirement>
+```
+
+- **Autonomous mode (default)**: no human gates between requirement and "no findings".
+  Open questions are settled with conservative assumptions (preserve behavior, minimize
+  scope) and every such decision is listed in a "Decisions made by AI" section of the
+  final report.
+- **`--gated`**: adds two human checkpoints — requirement sign-off and design sign-off.
+- **Invariant gates (both modes)**: destructive operations, writes to external systems,
+  and `git commit` / `push` always require a human. draftsmith never commits or pushes.
+
+### Scope: what draftsmith deliberately does NOT own
+
+- **No task ledger** — it processes exactly one task per invocation
+- **No PR creation, no commit, no push** — it stops at a verified working-tree change
+- **No full-cycle orchestration** — plan management and release flows belong elsewhere
+
+### Using alongside claude-code-harness
+
+draftsmith is designed to slot into the gap left by
+[claude-code-harness](https://github.com/Chachamaru127/claude-code-harness): harness owns
+the outer loop (Plans.md ledger, work orchestration, review verdicts, memory), draftsmith
+owns the inner loop of a single task. A working combination:
+
+1. `harness-plan` — build the task ledger (Plans.md)
+2. `/draftsmith <one task line from Plans.md>` — design-first execution of that task
+3. Review the reported diff, commit it yourself
+4. `harness-sync` — update the ledger markers
+
+The two plugins stay loosely coupled: draftsmith reads a task *description*, never
+harness's internal state.
+
+### Related work
+
+[BMAD-METHOD](https://github.com/bmadcode/BMAD-METHOD) ·
+[GitHub Spec Kit](https://github.com/github/spec-kit) ·
+[Superpowers](https://github.com/obra/superpowers) ·
+Aider architect mode — draftsmith's niche is the tool-permission-enforced
+designer/implementer split plus an auditable reply contract, at single-task granularity.
+
+---
+
+## 日本語
+
+### なぜ設計ファーストか
+
+1 つのエージェントに設計と実装を同時にやらせると、編集の手元で暗黙の設計判断が起き、
+レビューは書かれたものの追認になりがち。draftsmith はループを 3 役に分割し、境界を
+**ツール権限で構造的に**強制する。
+
+- **designer**（opus / high）— コードベースを調査して一次設計を返す。**Edit/Write を
+  持たない**ので「ちょっと直しておく」が物理的にできない。return は出力契約 5 要素
+  （逐語 brief / 提案デフォルト付き確認事項 / 前提崩れ報告 / トレーサビリティ表 /
+  重要判断のみの mini-ADR）に従う
+- **main セッション** — 発注者兼監査者。dispatch 前に「反証可能な予測」を 2〜3 行書き、
+  監査では (1) 全受け入れ基準とのトレーサビリティ照合 (2) ADR の要件引用チェック
+  (3) 予測と成果物の乖離検査、の 3 層を回す。第 3 層は監査のゴム印化を検知する安価な
+  仕掛け。designer の提案を覆すときは理由 + 代替案の明文化が必須
+- **implementer**（sonnet）— brief を逐語適用する。設計判断はしない。brief のアンカーが
+  実ファイルと一致しなければ、推測で埋めずスキップ報告する
+- **reviewer-light**（sonnet / read-only）— 7 つの汎用観点（正確性・エッジケース・
+  意味的冗長性・可読性・型・プロジェクト規約・テスト）で「指摘なし」までループする。
+  観点外リストを明示していて、linter の仕事は奪わない
+
+### インストール
+
+```
+/plugin marketplace add kaionn/draftsmith
+/plugin install draftsmith@draftsmith
+```
+
+### 使い方
 
 ```
 /draftsmith <要件を自然言語で>
-/draftsmith --gated <要件>   # 要件確定・設計確定の 2 ゲートを人間確認にする
+/draftsmith --gated <要件>
 ```
 
-## Structure / 構成
+- **自律モード（既定）**: 要件入力から「指摘なし」まで人間ゲートなしで自走する。
+  未決事項は保守的仮定（既存挙動維持・スコープ最小）で確定し、下した判断はすべて
+  完了報告の「AI が下した判断」節に一覧で出る
+- **`--gated`**: 要件確定・設計確定の 2 ゲートが人間確認になる
+- **不変ゲート（両モード共通）**: 破壊的操作・外部システムへの書き込み・
+  `git commit` / `push` は常に人間確認。draftsmith は commit / push を一切しない
 
-- `agents/designer.md` — 一次設計（読み取り専用。実装権限なし）
-- `agents/implementer.md` — 逐語 brief の適用（設計判断なし）
-- `agents/reviewer-light.md` — 軽量レビュー（「指摘なし」までループ）
-- `skills/draftsmith/SKILL.md` — メインフロー
-- `skills/draftsmith/templates/` — 要件書・出力契約・mini-ADR テンプレート
+### draftsmith が意図的に持たないもの
+
+- **タスク台帳を持たない** — 1 回の起動で 1 タスクだけ処理する
+- **PR 作成・commit・push をしない** — 検証済みのワーキングツリー変更で止まる
+- **フルサイクルのオーケストレーションをしない** — 計画管理・リリースは他に任せる
+
+### claude-code-harness との棲み分け
+
+draftsmith は [claude-code-harness](https://github.com/Chachamaru127/claude-code-harness)
+の隙間（専任設計エージェント・設計監査・逐語 brief）を埋める設計。harness がアウター
+ループ（Plans.md 台帳・作業オーケストレーション・レビュー verdict・メモリ）を持ち、
+draftsmith は 1 タスクのインナーループを持つ。併用パターン:
+
+1. `harness-plan` — タスク台帳（Plans.md）を作る
+2. `/draftsmith <Plans.md のタスク 1 行>` — そのタスクを設計ファーストで実行
+3. 報告された diff を自分で確認して commit
+4. `harness-sync` — 台帳のマーカーを更新
+
+両者は疎結合。draftsmith が読むのはタスクの「記述」だけで、harness の内部状態には
+依存しない（harness の autoUpdate で壊れない）。
+
+### 構成
+
+```
+.claude-plugin/plugin.json      # プラグイン manifest
+.claude-plugin/marketplace.json # self-marketplace（単一リポで配布）
+agents/designer.md              # 一次設計（読み取り専用）
+agents/implementer.md           # 逐語適用（設計判断なし）
+agents/reviewer-light.md        # 軽量レビュー（定型出力）
+skills/draftsmith/SKILL.md      # メインフロー（7 ステップ）
+skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR
+```
 
 ## License
 
