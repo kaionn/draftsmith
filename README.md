@@ -160,37 +160,6 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 - **PR 作成・commit・push をしない** — 検証済みのワーキングツリー変更で止まる
 - **フルサイクルのオーケストレーションをしない** — 計画管理・リリースは他に任せる
 
-### claude-code-harness との棲み分け
-
-draftsmith は [claude-code-harness](https://github.com/Chachamaru127/claude-code-harness)
-の隙間（専任設計エージェント・設計監査・逐語 brief）を埋める設計。harness がアウター
-ループ（Plans.md 台帳・作業オーケストレーション・レビュー verdict・メモリ）を持ち、
-draftsmith は 1 タスクのインナーループを持つ。併用パターン:
-
-1. `harness-plan` — タスク台帳（Plans.md）を作る
-2. `/draftsmith <Plans.md のタスク 1 行>` — そのタスクを設計ファーストで実行
-3. 報告された diff を自分で確認して commit
-4. `harness-sync` — 台帳のマーカーを更新
-
-両者は疎結合。draftsmith が読むのはタスクの「記述」だけで、harness の内部状態には
-依存しない（harness の autoUpdate で壊れない）。
-
-### 実例
-
-[signal-lab](https://github.com/kaionn/signal-lab)（Next.js アプリ）での実サイクル。
-タスクは「weekly-digest のローダーを meta.yaml 欠落・parse 不能に耐えるようにする」:
-
-- **designer** が実ローダーを調査し、受け入れ基準 3 件を全カバーするトレーサビリティ表
-  付きの逐語 brief を return。確認事項 2 件にはそれぞれ提案デフォルト付き
-  （例:「null になる meta は静かにスキップでなく warning を出す。要件の目的は
-  壊れに*気付ける*ことだから」）
-- **監査** 通過: 全 AC がマップ済み・判断は要件を引用・成果物は dispatch 前の予測と一致
-  （fixture を除き単一ファイル変更）
-- **implementer** が brief を適用、**reviewer-light** は 1 ラウンド目で「指摘なし」
-- 完了報告には自律判断 2 件の一覧と、スコープ外の本物の発見が載った: 兄弟ローダー
-  （`lib/experiments.ts`）に同型の脆さがある — 黙って直さずフォローアップとして報告
-  （スコープガードが設計どおり機能）。commit / push はせず、diff は人間に委ねられた
-
 ### 構成
 
 ```
