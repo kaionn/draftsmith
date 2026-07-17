@@ -53,6 +53,8 @@ splits the loop into three roles with **structurally enforced boundaries**:
 ```
 /draftsmith <your requirement in natural language>
 /draftsmith --gated <requirement>
+/draftsmith --light <requirement>   # force the light lane
+/draftsmith --full <requirement>    # force the full lane
 ```
 
 - **Autonomous mode (default)**: no human gates between requirement and "no findings".
@@ -62,6 +64,23 @@ splits the loop into three roles with **structurally enforced boundaries**:
 - **`--gated`**: adds two human checkpoints — requirement sign-off and design sign-off.
 - **Invariant gates (both modes)**: destructive operations, writes to external systems,
   and `git commit` / `push` always require a human. draftsmith never commits or pushes.
+
+### Lanes: full vs light
+
+At entry, draftsmith classifies the task and picks one of two lanes (overridable with
+`--full` / `--light`):
+
+- **full** — the 7-step flow above. Default whenever any design judgement is involved.
+- **light** — for tasks where the approach is unambiguous, the anchors are obvious from
+  the requirement (no investigation needed), and the change is small (~1–3 files, no
+  structural change). Skips designer: the main session writes the verbatim brief itself,
+  implementer applies it under the same no-guessing discipline, and reviewer-light runs
+  a **single pass** instead of looping. If mid-lane evidence shows the task was heavier
+  than judged (anchors need investigation, structural mismatch, design-level review
+  findings), it escalates one-way to full and restarts.
+
+When in doubt the classifier falls back to full; the chosen lane and its reasoning are
+always listed in the final report.
 
 ### Scope: what draftsmith deliberately does NOT own
 
@@ -145,6 +164,8 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 ```
 /draftsmith <要件を自然言語で>
 /draftsmith --gated <要件>
+/draftsmith --light <要件>   # light レーンを強制
+/draftsmith --full <要件>    # full レーンを強制
 ```
 
 - **自律モード（既定）**: 要件入力から「指摘なし」まで人間ゲートなしで自走する。
@@ -153,6 +174,20 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 - **`--gated`**: 要件確定・設計確定の 2 ゲートが人間確認になる
 - **不変ゲート（両モード共通）**: 破壊的操作・外部システムへの書き込み・
   `git commit` / `push` は常に人間確認。draftsmith は commit / push を一切しない
+
+### レーン: full と light
+
+入口でタスクの軽重を判定し、2 レーンのどちらかを自動選択する（`--full` / `--light` で
+強制指定も可能）:
+
+- **full** — 上記の 7 ステップフロー。設計判断が少しでも絡むならこちら
+- **light** — 方針が一意・アンカーが要件から自明（調査不要）・変更が小さい
+  （目安 1〜3 ファイル・構造変更なし）タスク向け。designer を省略して main が逐語 brief を
+  直接書き、implementer は同じ「推測しない」規律で適用、reviewer-light はループせず
+  **1 巡のみ**。実行中に判定より重いと分かったら（アンカーに調査が必要・構造的な
+  食い違い・設計に踏み込むレビュー指摘）、full へ一方向に昇格してやり直す
+
+迷ったら full に倒す保守的判定で、選んだレーンと理由は完了報告に必ず記録される。
 
 ### draftsmith が意図的に持たないもの
 
