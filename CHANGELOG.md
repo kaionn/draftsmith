@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-24
+
 ### Added
 
 - auditor エージェント（opus / read-only）: designer の brief をフレッシュコンテキストで意味的に監査する独立監査層。full レーンの Step 3 で既定実行し、`--no-audit` で省略できる。6 観点（接合面・バグの芽・規約準拠・要件充足・設計の甘さ・mini-ADR の妥当性）+ 信頼度付き指摘。high 指摘は反映か明示的棄却の二択
@@ -36,5 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/kaionn/draftsmith/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/kaionn/draftsmith/releases/tag/v1.0.0
