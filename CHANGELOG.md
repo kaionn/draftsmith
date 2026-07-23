@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- auditor エージェント（opus / read-only）: designer の brief をフレッシュコンテキストで意味的に監査する独立監査層。full レーンの Step 3 で既定実行し、`--no-audit` で省略できる。6 観点（接合面・バグの芽・規約準拠・要件充足・設計の甘さ・mini-ADR の妥当性）+ 信頼度付き指摘。high 指摘は反映か明示的棄却の二択
+- consultant エージェント（opus / read-only / on-demand）: 覆し判断の独立第二意見。designer 提案の覆し・auditor high 指摘の棄却・軽微/重大の境界迷いの 3 トリガーで必須諮問。助言棄却には一次資料引用付きの二段目明文化を要求（非対称プロトコル二段目）
+- 自律モードの例外エスカレーション: 保守的仮定で埋めきれない未決事項（Step 1 / Step 4）は、推測せず AskUserQuestion でその 1 点だけを人間に確定してもらう。頻発時は `--gated` での仕切り直しを提案
+
+### Changed
+
+- 差し戻し規律を明文化: designer への差し戻しは違反箇所の指摘に限定し、修正案の詳細を書かない（マイクロマネジメントによる責務分離の崩壊防止）
+- 中央検証の成果物を designer にレビューさせない禁止を明記（自己弁護バイアス対策）
+- auditor の「注意事項（予測）」は修正指示として扱わず、予測だけを根拠に確定済み設計を書き換えない規定を追加
+- 完了報告の「AI が下した判断」に auditor 指摘の採否と consultant 諮問の記録を追加
+
 ## [1.0.0] - 2026-07-17
 
 ### Added

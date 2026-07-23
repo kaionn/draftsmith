@@ -7,7 +7,9 @@ One task in, reviewed change out: **requirements → design → audit → implem
 ```mermaid
 flowchart LR
     R[Requirements<br/>要件正規化] --> D[designer<br/>opus / read-only]
-    D --> A{Audit ×3<br/>監査 3 層}
+    D --> AU[auditor<br/>独立監査 / read-only]
+    D --> A{Audit<br/>形式 3 層 + 指摘統合}
+    AU --> A
     A -- 差し戻し --> D
     A --> I[implementer<br/>sonnet / verbatim]
     I --> V[Central verification<br/>format / lint / test]
@@ -35,6 +37,16 @@ splits the loop into three roles with **structurally enforced boundaries**:
   (1) traceability against every acceptance criterion, (2) that ADRs actually cite the
   requirements, (3) divergence between prediction and result — a cheap tripwire against
   rubber-stamp auditing. Overruling the designer requires a written reason and alternative.
+- **auditor** (opus, read-only) — a fresh-context semantic audit of the designer's brief,
+  run in the full lane by default (`--no-audit` to skip). The main session's 3-layer audit
+  is formal; the auditor checks *meaning* across six lenses (seams, bug seeds, conventions,
+  requirement coverage, vague instructions, ADR validity) — and, being independent of the
+  ordering context, it counters the structural conflict of interest of an orderer grading
+  its own order. High-confidence findings must be applied or explicitly overruled.
+- **consultant** (opus, read-only, on-demand) — a second-opinion agent the main session
+  must consult *before* overruling a designer proposal or rejecting a high-confidence
+  auditor finding. Rejecting the consultant's advice too requires a second written
+  justification citing primary sources — a double hurdle against self-serving dismissals.
 - **implementer** (sonnet) — applies the brief verbatim. No design decisions. If an anchor
   in the brief doesn't match the file, it skips and reports instead of guessing.
 - **reviewer-light** (sonnet, read-only) — loops until "no findings" across seven generic
@@ -55,12 +67,15 @@ splits the loop into three roles with **structurally enforced boundaries**:
 /draftsmith --gated <requirement>
 /draftsmith --light <requirement>   # force the light lane
 /draftsmith --full <requirement>    # force the full lane
+/draftsmith --no-audit <requirement> # skip the independent design audit
 ```
 
 - **Autonomous mode (default)**: no human gates between requirement and "no findings".
   Open questions are settled with conservative assumptions (preserve behavior, minimize
   scope) and every such decision is listed in a "Decisions made by AI" section of the
-  final report.
+  final report. One escape hatch: an open question that conservative assumptions
+  genuinely cannot settle triggers a single targeted human question instead of a guess —
+  and if that keeps happening, draftsmith suggests rerunning with `--gated`.
 - **`--gated`**: adds two human checkpoints — requirement sign-off and design sign-off.
 - **Invariant gates (both modes)**: destructive operations, writes to external systems,
   and `git commit` / `push` always require a human. draftsmith never commits or pushes.
@@ -73,7 +88,8 @@ At entry, draftsmith classifies the task and picks one of two lanes (overridable
 - **full** — the 7-step flow above. Default whenever any design judgement is involved.
 - **light** — for tasks where the approach is unambiguous, the anchors are obvious from
   the requirement (no investigation needed), and the change is small (~1–3 files, no
-  structural change). Skips designer: the main session writes the verbatim brief itself,
+  structural change). Skips designer (and hence the independent audit): the main session
+  writes the verbatim brief itself,
   implementer applies it under the same no-guessing discipline, and reviewer-light runs
   a **single pass** instead of looping. If mid-lane evidence shows the task was heavier
   than judged (anchors need investigation, structural mismatch, design-level review
@@ -146,6 +162,15 @@ designer/implementer split plus an auditable reply contract, at single-task gran
   監査では (1) 全受け入れ基準とのトレーサビリティ照合 (2) ADR の要件引用チェック
   (3) 予測と成果物の乖離検査、の 3 層を回す。第 3 層は監査のゴム印化を検知する安価な
   仕掛け。designer の提案を覆すときは理由 + 代替案の明文化が必須
+- **auditor**（opus / read-only）— designer の brief をフレッシュコンテキストで意味的に
+  監査する独立監査層。full レーンで既定実行（`--no-audit` で省略可）。main の 3 層は
+  形式の検査なので、意味の検査（接合面・バグの芽・規約準拠・要件充足の中身・設計の
+  甘さ・mini-ADR の妥当性の 6 観点）を発注の経緯から独立した立場で担う。発注者が
+  自分の発注物を評価する構造的な利益相反への対策でもある。high 信頼度の指摘は
+  反映か明示的な棄却かの二択で、黙殺できない
+- **consultant**（opus / read-only / on-demand）— designer 提案の覆しと auditor の
+  high 指摘の棄却の直前に、main が必ず諮問する独立第二意見。consultant の助言まで
+  棄却するには一次資料の引用付きで二段目の明文化が要る。独断棄却への二重のハードル
 - **implementer**（sonnet）— brief を逐語適用する。設計判断はしない。brief のアンカーが
   実ファイルと一致しなければ、推測で埋めずスキップ報告する
 - **reviewer-light**（sonnet / read-only）— 7 つの汎用観点（正確性・エッジケース・
@@ -164,13 +189,16 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 ```
 /draftsmith <要件を自然言語で>
 /draftsmith --gated <要件>
-/draftsmith --light <要件>   # light レーンを強制
-/draftsmith --full <要件>    # full レーンを強制
+/draftsmith --light <要件>    # light レーンを強制
+/draftsmith --full <要件>     # full レーンを強制
+/draftsmith --no-audit <要件> # auditor 独立監査を省略
 ```
 
 - **自律モード（既定）**: 要件入力から「指摘なし」まで人間ゲートなしで自走する。
   未決事項は保守的仮定（既存挙動維持・スコープ最小）で確定し、下した判断はすべて
-  完了報告の「AI が下した判断」節に一覧で出る
+  完了報告の「AI が下した判断」節に一覧で出る。逃げ道を一つだけ持つ:
+  保守的仮定で埋めきれない未決事項に限り、推測せずその 1 点だけを人間に確認する。
+  これが頻発するタスクには `--gated` での仕切り直しを提案する
 - **`--gated`**: 要件確定・設計確定の 2 ゲートが人間確認になる
 - **不変ゲート（両モード共通）**: 破壊的操作・外部システムへの書き込み・
   `git commit` / `push` は常に人間確認。draftsmith は commit / push を一切しない
@@ -182,8 +210,8 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 
 - **full** — 上記の 7 ステップフロー。設計判断が少しでも絡むならこちら
 - **light** — 方針が一意・アンカーが要件から自明（調査不要）・変更が小さい
-  （目安 1〜3 ファイル・構造変更なし）タスク向け。designer を省略して main が逐語 brief を
-  直接書き、implementer は同じ「推測しない」規律で適用、reviewer-light はループせず
+  （目安 1〜3 ファイル・構造変更なし）タスク向け。designer（と、それを見る auditor 独立監査）を
+  省略して main が逐語 brief を直接書き、implementer は同じ「推測しない」規律で適用、reviewer-light はループせず
   **1 巡のみ**。実行中に判定より重いと分かったら（アンカーに調査が必要・構造的な
   食い違い・設計に踏み込むレビュー指摘）、full へ一方向に昇格してやり直す
 
@@ -201,6 +229,8 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 .claude-plugin/plugin.json      # プラグイン manifest
 .claude-plugin/marketplace.json # self-marketplace（単一リポで配布）
 agents/designer.md              # 一次設計（読み取り専用）
+agents/auditor.md               # 独立設計監査（読み取り専用・full レーン既定）
+agents/consultant.md            # 覆し判断の独立第二意見（読み取り専用・on-demand）
 agents/implementer.md           # 逐語適用（設計判断なし）
 agents/reviewer-light.md        # 軽量レビュー（定型出力）
 skills/draftsmith/SKILL.md      # メインフロー（7 ステップ）

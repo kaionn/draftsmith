@@ -5,7 +5,7 @@
 ## プロジェクト構成
 
 - `skills/draftsmith/SKILL.md` — メインスキル（full / light 2 レーン）
-- `agents/` — designer / implementer / reviewer-light
+- `agents/` — designer / auditor / consultant / implementer / reviewer-light
 - `skills/draftsmith/templates/` — 要件書・出力契約・mini-ADR テンプレート
 - `.claude-plugin/plugin.json` — プラグインメタデータ（バージョンの SSOT）
 - `.claude-plugin/marketplace.json` — self-marketplace 定義
