@@ -2,5 +2,8 @@
 .claude/
 .harness-mem/
 
+# Python
+__pycache__/
+
 # OS
 .DS_Store

@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>diff review</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #dfe3e8;
+    --text: #1c2126;
+    --text-muted: #6b7280;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    --add-bg: #e6ffed;
+    --add-text: #116329;
+    --del-bg: #ffeef0;
+    --del-text: #b31d28;
+    --risk-low: #2f9e44;
+    --risk-caution: #d9822b;
+    --risk-danger: #d6336c;
+    --header-h: 64px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --panel: #1d2125;
+      --border: #33383e;
+      --text: #e6e8ea;
+      --text-muted: #9aa3ad;
+      --add-bg: #0f3a24;
+      --add-text: #7ee2a0;
+      --del-bg: #3a1418;
+      --del-text: #ff9aa5;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    z-index: 10;
+    gap: 16px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .brand {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .review-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .stats-chip {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .stats-chip .add { color: var(--add-text); font-weight: 600; }
+  .stats-chip .del { color: var(--del-text); font-weight: 600; }
+
+  .progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .progress-bar {
+    width: 100px;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--risk-low);
+    transition: width 0.2s ease;
+  }
+
+  #progress-text {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  main {
+    padding-top: calc(var(--header-h) + 20px);
+    max-width: 960px;
+    margin: 0 auto;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: 60px;
+  }
+
+  .section-heading {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    margin: 32px 0 12px;
+  }
+
+  .section:first-of-type .section-heading {
+    margin-top: 0;
+  }
+
+  /* 一覧セクション */
+
+  .group-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+
+  .group-row:hover { border-color: #b8c0c8; }
+
+  .group-row.risk-low { border-left-color: var(--risk-low); }
+  .group-row.risk-caution { border-left-color: var(--risk-caution); }
+  .group-row.risk-danger { border-left-color: var(--risk-danger); }
+
+  .group-row.approved { opacity: 0.55; }
+
+  .group-row-main {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .group-row-title {
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .row-check {
+    color: var(--risk-low);
+    font-weight: 700;
+  }
+
+  .group-row-summary {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+
+  .group-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    font-size: 11px;
+  }
+
+  .badge {
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .findings-badge.has-warn {
+    color: var(--del-text);
+    border-color: var(--del-text);
+  }
+
+  .chip {
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .risk-badge-low { color: var(--risk-low); border-color: var(--risk-low); }
+  .risk-badge-caution { color: var(--risk-caution); border-color: var(--risk-caution); }
+  .risk-badge-danger { color: var(--risk-danger); border-color: var(--risk-danger); }
+
+  /* 詳細セクション */
+
+  .group-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+  }
+
+  .group-card.risk-low { border-left-color: var(--risk-low); }
+  .group-card.risk-caution { border-left-color: var(--risk-caution); }
+  .group-card.risk-danger { border-left-color: var(--risk-danger); }
+  .group-card.approved { border-left-color: var(--risk-low); }
+
+  .group-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .group-card-title {
+    font-size: 17px;
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .approve-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .approve-toggle input { cursor: pointer; }
+
+  .group-intent {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+    margin: 0 0 10px;
+  }
+
+  .findings-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .finding {
+    font-size: 12px;
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  .finding-warn { color: var(--del-text); }
+  .finding-info { color: var(--text-muted); }
+
+  .finding-icon { flex-shrink: 0; }
+
+  /* hunk 表示 */
+
+  .hunk-block {
+    margin-top: 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .hunk-file-header {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg);
+    color: var(--text-muted);
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow-x: auto;
+  }
+
+  .diff-table-wrap {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .diff-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+
+  .line-no {
+    width: 1%;
+    min-width: 40px;
+    text-align: right;
+    padding: 1px 8px;
+    color: var(--text-muted);
+    user-select: none;
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .line-code {
+    padding: 1px 10px;
+    white-space: pre;
+  }
+
+  .diff-line-add { background: var(--add-bg); }
+  .diff-line-add .line-code { color: var(--add-text); }
+  .diff-line-del { background: var(--del-bg); }
+  .diff-line-del .line-code { color: var(--del-text); }
+  .diff-line-nonewline .line-code { color: var(--text-muted); font-style: italic; }
+
+  .line-marker {
+    display: inline-block;
+    width: 1em;
+    user-select: none;
+  }
+
+  /* 非表示ファイル一覧 */
+
+  #hidden-files-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .hidden-file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-left">
+    <span class="brand">DIFF REVIEW</span>
+    <h1 class="review-title" id="review-title"></h1>
+  </div>
+  <div class="header-right">
+    <div class="stats-chip">
+      <span id="stat-files"></span> files / <span id="stat-hunks"></span> hunks
+      <span class="add" id="stat-add"></span> <span class="del" id="stat-del"></span>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <span id="progress-text">承認 0/0</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="section" id="section-list">
+    <h2 class="section-heading">01 / 変更グループ一覧</h2>
+    <div id="group-list"></div>
+  </section>
+
+  <section class="section" id="section-detail">
+    <h2 class="section-heading">02 / 変更グループ詳細</h2>
+    <div id="group-details"></div>
+  </section>
+
+  <section class="section" id="section-hidden">
+    <h2 class="section-heading">diff 非表示のファイル</h2>
+    <ul id="hidden-files-list"></ul>
+  </section>
+</main>
+
+<script id="review-data" type="application/json">__REVIEW_DATA_JSON__</script>
+<script>
+(function () {
+  "use strict";
+
+  var RISK_LABEL = { low: "低リスク", caution: "注意", danger: "要注意" };
+
+  function loadData() {
+    var el = document.getElementById("review-data");
+    return JSON.parse(el.textContent);
+  }
+
+  function storageKeyOf(stateKey) {
+    return "diffreview:" + stateKey;
+  }
+
+  function loadApproved(key) {
+    try {
+      var raw = window.localStorage.getItem(key);
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveApproved(key, approvedSet) {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(Array.from(approvedSet)));
+    } catch (e) {
+      // localStorage が使えない環境ではメモリ内のみで動作する
+    }
+  }
+
+  function lineClass(t) {
+    if (t === "+") return "add";
+    if (t === "-") return "del";
+    if (t === "\\") return "nonewline";
+    return "ctx";
+  }
+
+  var data = loadData();
+  var groups = data.groups;
+  var hunksById = data.hunks;
+  var meta = data.meta;
+
+  var storeKey = storageKeyOf(meta.state_key);
+  var approved = new Set(loadApproved(storeKey));
+
+  function renderHeader() {
+    document.getElementById("review-title").textContent = data.review_title || "";
+    document.getElementById("stat-files").textContent = meta.stats.files;
+    document.getElementById("stat-hunks").textContent = meta.stats.hunks;
+    document.getElementById("stat-add").textContent = "+" + meta.stats.additions;
+    document.getElementById("stat-del").textContent = "−" + meta.stats.deletions;
+  }
+
+  function updateProgress() {
+    var total = groups.length;
+    var done = approved.size;
+    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    document.getElementById("progress-fill").style.width = pct + "%";
+    document.getElementById("progress-text").textContent = "承認 " + done + "/" + total;
+  }
+
+  function setApproved(gid, isApproved) {
+    if (isApproved) {
+      approved.add(gid);
+    } else {
+      approved.delete(gid);
+    }
+    saveApproved(storeKey, approved);
+
+    var row = document.getElementById("group-row-" + gid);
+    if (row) {
+      row.classList.toggle("approved", isApproved);
+      var rowCheck = row.querySelector(".row-check");
+      if (rowCheck) rowCheck.textContent = isApproved ? "✓ " : "";
+    }
+
+    var card = document.getElementById("group-detail-" + gid);
+    if (card) {
+      card.classList.toggle("approved", isApproved);
+      var label = card.querySelector(".approve-toggle span");
+      if (label) label.textContent = isApproved ? "承認済み ✓" : "確認して承認";
+    }
+
+    updateProgress();
+  }
+
+  function renderGroupList() {
+    var container = document.getElementById("group-list");
+    groups.forEach(function (g) {
+      var row = document.createElement("div");
+      row.className = "group-row risk-" + g.risk + (approved.has(g.id) ? " approved" : "");
+      row.id = "group-row-" + g.id;
+      row.addEventListener("click", function () {
+        var target = document.getElementById("group-detail-" + g.id);
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      var main = document.createElement("div");
+      main.className = "group-row-main";
+
+      var titleLine = document.createElement("div");
+      titleLine.className = "group-row-title";
+      var checkMark = document.createElement("span");
+      checkMark.className = "row-check";
+      checkMark.textContent = approved.has(g.id) ? "✓ " : "";
+      titleLine.appendChild(checkMark);
+      var titleText = document.createElement("span");
+      titleText.textContent = g.title;
+      titleLine.appendChild(titleText);
+      main.appendChild(titleLine);
+
+      var summaryLine = document.createElement("div");
+      summaryLine.className = "group-row-summary";
+      summaryLine.textContent = g.summary;
+      main.appendChild(summaryLine);
+
+      row.appendChild(main);
+
+      var rowMeta = document.createElement("div");
+      rowMeta.className = "group-row-meta";
+
+      var warnCount = g.findings.filter(function (f) { return f.severity === "warn"; }).length;
+      var findingsBadge = document.createElement("span");
+      findingsBadge.className = "badge findings-badge" + (warnCount > 0 ? " has-warn" : "");
+      findingsBadge.textContent = "指摘 " + g.findings.length;
+      rowMeta.appendChild(findingsBadge);
+
+      g.tags.forEach(function (t) {
+        var chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = t;
+        rowMeta.appendChild(chip);
+      });
+
+      var hunkCount = document.createElement("span");
+      hunkCount.className = "badge";
+      hunkCount.textContent = g.hunks.length + " hunks";
+      rowMeta.appendChild(hunkCount);
+
+      var riskBadge = document.createElement("span");
+      riskBadge.className = "badge risk-badge-" + g.risk;
+      riskBadge.textContent = RISK_LABEL[g.risk] || g.risk;
+      rowMeta.appendChild(riskBadge);
+
+      row.appendChild(rowMeta);
+      container.appendChild(row);
+    });
+  }
+
+  function renderHunk(hid, hunk) {
+    var wrap = document.createElement("div");
+    wrap.className = "hunk-block";
+
+    var fileHeader = document.createElement("div");
+    fileHeader.className = "hunk-file-header";
+    fileHeader.textContent = hid + " " + hunk.file + " " + hunk.header;
+    wrap.appendChild(fileHeader);
+
+    var tableWrap = document.createElement("div");
+    tableWrap.className = "diff-table-wrap";
+    var table = document.createElement("table");
+    table.className = "diff-table";
+    var tbody = document.createElement("tbody");
+
+    hunk.lines.forEach(function (line) {
+      var tr = document.createElement("tr");
+      tr.className = "diff-line diff-line-" + lineClass(line.t);
+
+      var oldCell = document.createElement("td");
+      oldCell.className = "line-no";
+      oldCell.textContent = (line.old !== null && line.old !== undefined) ? String(line.old) : "";
+      tr.appendChild(oldCell);
+
+      var newCell = document.createElement("td");
+      newCell.className = "line-no";
+      newCell.textContent = (line.new !== null && line.new !== undefined) ? String(line.new) : "";
+      tr.appendChild(newCell);
+
+      var codeCell = document.createElement("td");
+      codeCell.className = "line-code";
+
+      if (line.t === "\\") {
+        codeCell.textContent = "\\ " + (line.s || "No newline at end of file");
+      } else {
+        var marker = document.createElement("span");
+        marker.className = "line-marker";
+        marker.textContent = line.t === "+" ? "+" : (line.t === "-" ? "-" : " ");
+        codeCell.appendChild(marker);
+        codeCell.appendChild(document.createTextNode(line.s));
+      }
+
+      tr.appendChild(codeCell);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    wrap.appendChild(tableWrap);
+    return wrap;
+  }
+
+  function renderGroupDetails() {
+    var container = document.getElementById("group-details");
+    groups.forEach(function (g) {
+      var card = document.createElement("article");
+      card.className = "group-card risk-" + g.risk + (approved.has(g.id) ? " approved" : "");
+      card.id = "group-detail-" + g.id;
+
+      var head = document.createElement("div");
+      head.className = "group-card-head";
+
+      var riskBadge = document.createElement("span");
+      riskBadge.className = "badge risk-badge-" + g.risk;
+      riskBadge.textContent = RISK_LABEL[g.risk] || g.risk;
+      head.appendChild(riskBadge);
+
+      var titleEl = document.createElement("h3");
+      titleEl.className = "group-card-title";
+      titleEl.textContent = g.title;
+      head.appendChild(titleEl);
+
+      var approveLabel = document.createElement("label");
+      approveLabel.className = "approve-toggle";
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = approved.has(g.id);
+      var approveText = document.createElement("span");
+      approveText.textContent = checkbox.checked ? "承認済み ✓" : "確認して承認";
+      approveLabel.appendChild(checkbox);
+      approveLabel.appendChild(approveText);
+      checkbox.addEventListener("change", function () {
+        setApproved(g.id, checkbox.checked);
+      });
+      head.appendChild(approveLabel);
+
+      card.appendChild(head);
+
+      var intentEl = document.createElement("p");
+      intentEl.className = "group-intent";
+      var intentLabel = document.createElement("strong");
+      intentLabel.textContent = "意図: ";
+      intentEl.appendChild(intentLabel);
+      intentEl.appendChild(document.createTextNode(g.intent));
+      card.appendChild(intentEl);
+
+      if (g.findings.length > 0) {
+        var findingsList = document.createElement("ul");
+        findingsList.className = "findings-list";
+        g.findings.forEach(function (f) {
+          var li = document.createElement("li");
+          li.className = "finding finding-" + f.severity;
+          var icon = document.createElement("span");
+          icon.className = "finding-icon";
+          icon.textContent = f.severity === "warn" ? "⚠" : "ℹ";
+          li.appendChild(icon);
+          li.appendChild(document.createTextNode(f.text));
+          findingsList.appendChild(li);
+        });
+        card.appendChild(findingsList);
+      }
+
+      g.hunks.forEach(function (hid) {
+        var hunk = hunksById[hid];
+        if (!hunk) return;
+        card.appendChild(renderHunk(hid, hunk));
+      });
+
+      container.appendChild(card);
+    });
+  }
+
+  function renderHiddenFiles() {
+    var section = document.getElementById("section-hidden");
+    var list = document.getElementById("hidden-files-list");
+
+    var filesWithHunks = new Set();
+    Object.keys(hunksById).forEach(function (hid) {
+      filesWithHunks.add(hunksById[hid].file);
+    });
+
+    var hidden = (meta.files || []).filter(function (f) {
+      return !filesWithHunks.has(f.path);
+    });
+
+    if (hidden.length === 0) {
+      section.style.display = "none";
+      return;
+    }
+
+    hidden.forEach(function (f) {
+      var li = document.createElement("li");
+      li.className = "hidden-file-item";
+      var statusChip = document.createElement("span");
+      statusChip.className = "badge";
+      statusChip.textContent = f.status;
+      li.appendChild(statusChip);
+      var pathText = document.createElement("span");
+      pathText.textContent = f.old_path ? (f.old_path + " → " + f.path) : f.path;
+      li.appendChild(pathText);
+      list.appendChild(li);
+    });
+  }
+
+  renderHeader();
+  renderGroupList();
+  renderGroupDetails();
+  renderHiddenFiles();
+  updateProgress();
+})();
+</script>
+</body>
+</html>

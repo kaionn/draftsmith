@@ -1,6 +1,6 @@
 ---
 name: draftsmith
-description: 設計ファーストのインナーループを 1 タスク分回す。自然言語の要件（または Plans.md の 1 タスク行）を受け取り、タスクの軽重で full / light の 2 レーンを入口で自動選択し、full は要件正規化 → designer 設計 → 形式監査 3 層 + auditor 独立監査 → implementer 実装 → reviewer-light「指摘なし」まで、light は designer を省いて main が brief を直接書き reviewer-light 1 巡で自走する。「設計から実装して」「draftsmith で」「設計ファーストで進めて」で発火。--gated で要件確定・設計確定を人間確認に、--full / --light でレーンを強制指定、--no-audit で auditor 独立監査を省略する。
+description: 設計ファーストのインナーループを 1 タスク分回す。自然言語の要件（または Plans.md の 1 タスク行）を受け取り、タスクの軽重で full / light の 2 レーンを入口で自動選択し、full は要件正規化 → designer 設計 → 形式監査 3 層 + auditor 独立監査 → implementer 実装 → reviewer-light「指摘なし」まで、light は designer を省いて main が brief を直接書き reviewer-light 1 巡で自走する。「設計から実装して」「draftsmith で」「設計ファーストで進めて」で発火。--gated で要件確定・設計確定を人間確認に、--full / --light でレーンを強制指定、--no-audit で auditor 独立監査を省略、--fable で designer を Fable モデルで起動する（無許可の Fable 使用は禁止）。
 user-invocable: true
 ---
 
@@ -69,6 +69,22 @@ designer agent をバックグラウンドで起動する。要件書は**全文
 **重要 — 宣言止まりの禁止**: 「次に designer を起動します」と書くだけで起動しないまま
 ターンを終えるとフローが死ぬ。起動の Agent 呼び出しは**宣言と同一ターン内**で必ず実行する。
 起動したらそのターンは終了してよい（バックグラウンド完了通知で再開する）。
+
+**designer のモデル選択（--fable）**: designer は既定で agent 定義のモデル（opus）で動く。
+次のいずれかの**ユーザー許可**があるときだけ、Agent 呼び出しに `model: "fable"` を渡して
+Fable（Opus 上位の Mythos 級ティア）で起動する:
+
+1. `--fable` フラグが指定されている
+2. ユーザーが会話で明示的に許可した（「Fable で設計して」等）
+3. あなたが提案して承認された: 要件が重量級の兆候（アーキテクチャ判断が複数絡む・
+   mini-ADR 3 件規模・影響範囲が広い）を示す場合に限り、起動前に AskUserQuestion で
+   「designer を Fable で回すか」を **1 回だけ**提案してよい。却下されたら既定モデルで
+   続行し、同一タスク内で再提案しない
+
+許可なしに Fable を使うことは禁止（コスト上振れを AI が一方的に判断しない）。
+Fable での起動が失敗した場合（モデル未提供等）は既定モデルに落として続行し、
+その旨を一行報告する。選択したモデルと経緯は完了報告の「AI が下した判断」に記録する。
+対象は designer のみ（auditor / consultant / implementer / reviewer-light には適用しない）。
 
 ### Step 3: 設計監査（形式 3 層 + auditor 独立監査）
 
@@ -163,6 +179,9 @@ designer の確認事項リスト（推奨デフォルト付き）を処理す�
    保守的仮定で埋めた未決事項、を一覧で
 3. **検証結果**: 実行した format / lint / test の結果、reviewer-light のラウンド数
 4. **残課題・懸念**: reviewer-light の「懸念（判定保留）」、未カバー AC があればその理由
+
+差分が大きく目視レビューが重い場合は、`/diff-review` で解説つきレビュー画面を
+生成できることを報告に一言添えてよい（生成するかは人間の判断。勝手に起動しない）。
 
 ## light レーン（5 ステップ）
 

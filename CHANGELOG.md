@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- /diff-review スキル: 未コミット差分（`--staged` / `--base <ref>` も可）から「解説つきレビュー画面」を自己完結 HTML として生成する。差分を hunk 単位に機械分割し、diff-analyzer が意味単位の変更グループ（意図・タグ・リスク・指摘）に分類、承認チェックリスト（localStorage 永続・進捗バー付き）として表示する。閲覧 + 承認チェックのみで git の状態は変えない
+- diff-analyzer エージェント（sonnet / read-only）: 分割済み diff の全 hunk を重複なく変更グループへ分類した JSON を返す。被覆（漏れ・重複・未知 id）はビルドスクリプトが機械検証し、LLM は分類だけ・HTML 生成は決定的スクリプトが担う分担
+- `--fable` オプション: ユーザー許可（フラグ・会話での明示許可・重量級タスクでの 1 回だけの昇格提案への承認）がある場合に designer を Fable モデルで起動する。無許可の Fable 使用は禁止、選択モデルと経緯は完了報告の「AI が下した判断」に記録。対象は designer のみ、起動失敗時は既定モデルへフォールバック
+
 ## [1.1.0] - 2026-07-24
 
 ### Added

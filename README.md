@@ -68,7 +68,21 @@ splits the loop into three roles with **structurally enforced boundaries**:
 /draftsmith --light <requirement>   # force the light lane
 /draftsmith --full <requirement>    # force the full lane
 /draftsmith --no-audit <requirement> # skip the independent design audit
+/draftsmith --fable <requirement>    # run the designer on the Fable model
 ```
+
+```
+/diff-review                 # annotated review screen for uncommitted changes
+/diff-review --staged        # staged changes only
+/diff-review --base main     # whole-branch diff against a ref
+```
+
+`/diff-review` generates a self-contained HTML review screen from a diff: hunks are
+split mechanically, a read-only **diff-analyzer** agent groups them into semantic
+change groups (intent, tags, risk label, findings), and a deterministic build script
+renders them with per-group approval checkboxes (persisted in localStorage) and a
+progress bar. Hunk coverage (no missing / duplicated hunks) is machine-verified.
+View + check only — it never touches git state.
 
 - **Autonomous mode (default)**: no human gates between requirement and "no findings".
   Open questions are settled with conservative assumptions (preserve behavior, minimize
@@ -77,6 +91,10 @@ splits the loop into three roles with **structurally enforced boundaries**:
   genuinely cannot settle triggers a single targeted human question instead of a guess —
   and if that keeps happening, draftsmith suggests rerunning with `--gated`.
 - **`--gated`**: adds two human checkpoints — requirement sign-off and design sign-off.
+- **`--fable`**: runs the designer on Fable (the tier above Opus) for this task. Fable is
+  never used without explicit user permission — the flag, a go-ahead in conversation, or
+  a one-time upgrade proposal draftsmith may make on clearly heavyweight tasks. The chosen
+  model is recorded in the final report. Designer only; other agents keep their defaults.
 - **Invariant gates (both modes)**: destructive operations, writes to external systems,
   and `git commit` / `push` always require a human. draftsmith never commits or pushes.
 
@@ -192,7 +210,20 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 /draftsmith --light <要件>    # light レーンを強制
 /draftsmith --full <要件>     # full レーンを強制
 /draftsmith --no-audit <要件> # auditor 独立監査を省略
+/draftsmith --fable <要件>    # designer を Fable モデルで起動
 ```
+
+```
+/diff-review                 # 未コミット差分の解説つきレビュー画面
+/diff-review --staged        # ステージ済みのみ
+/diff-review --base main     # 指定 ref とのブランチ差分
+```
+
+`/diff-review` は差分から自己完結 HTML のレビュー画面を生成する。hunk 分割は機械的に、
+意味づけは読み取り専用の **diff-analyzer** agent が変更グループ（意図・タグ・リスク・
+指摘）として行い、決定的なビルドスクリプトが承認チェックボックス（localStorage 永続）と
+進捗バー付きで描画する。hunk の被覆（漏れ・重複）は機械検証される。
+閲覧 + 承認チェックのみで、git の状態には一切触れない。
 
 - **自律モード（既定）**: 要件入力から「指摘なし」まで人間ゲートなしで自走する。
   未決事項は保守的仮定（既存挙動維持・スコープ最小）で確定し、下した判断はすべて
@@ -200,6 +231,9 @@ designer/implementer split plus an auditable reply contract, at single-task gran
   保守的仮定で埋めきれない未決事項に限り、推測せずその 1 点だけを人間に確認する。
   これが頻発するタスクには `--gated` での仕切り直しを提案する
 - **`--gated`**: 要件確定・設計確定の 2 ゲートが人間確認になる
+- **`--fable`**: designer を Fable（Opus 上位ティア）で起動する。Fable の使用には必ず
+  ユーザー許可が要る — フラグ指定・会話での明示許可・重量級タスクでの 1 回だけの
+  昇格提案への承認のいずれか。選択モデルは完了報告に記録される。対象は designer のみ
 - **不変ゲート（両モード共通）**: 破壊的操作・外部システムへの書き込み・
   `git commit` / `push` は常に人間確認。draftsmith は commit / push を一切しない
 
@@ -233,8 +267,12 @@ agents/auditor.md               # 独立設計監査（読み取り専用・full
 agents/consultant.md            # 覆し判断の独立第二意見（読み取り専用・on-demand）
 agents/implementer.md           # 逐語適用（設計判断なし）
 agents/reviewer-light.md        # 軽量レビュー（定型出力）
+agents/diff-analyzer.md         # 差分の意味グルーピング（読み取り専用）
 skills/draftsmith/SKILL.md      # メインフロー（7 ステップ）
 skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR
+skills/diff-review/SKILL.md     # 解説つき差分レビュー画面（/diff-review）
+skills/diff-review/scripts/     # diff 分割・HTML ビルド（Python stdlib のみ）
+skills/diff-review/templates/   # レビュー画面テンプレート
 ```
 
 ## License
