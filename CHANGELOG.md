@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-24
+
 ### Added
 
 - /diff-review スキル: 未コミット差分（`--staged` / `--base <ref>` も可）から「解説つきレビュー画面」を自己完結 HTML として生成する。差分を hunk 単位に機械分割し、diff-analyzer が意味単位の変更グループ（意図・タグ・リスク・指摘）に分類、承認チェックリスト（localStorage 永続・進捗バー付き）として表示する。閲覧 + 承認チェックのみで git の状態は変えない
@@ -44,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/kaionn/draftsmith/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/kaionn/draftsmith/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/kaionn/draftsmith/releases/tag/v1.0.0
