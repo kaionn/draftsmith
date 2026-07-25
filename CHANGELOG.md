@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - /verify-report スキル: 実装後の E2E 検証を証跡スクリーンショット付きの自己完結 HTML レポートにする。plan ファイル（または指定シナリオ）の受け入れ基準ごとに main がブラウザ操作でスクショを収集し、実装 diff を知らない evidence-reviewer が fresh context でスクショだけを目視して pass / fail / needs_human を判定する（自己追認の排除）。レポートはスクショを data URI で埋め込んだ単一 HTML で、AC × 証跡 × 判定の対応表と PR 転記用サマリー（markdown 生成 + クリップボードコピー）を含む。全 AC の判定被覆はビルドスクリプトが機械検証する
 - evidence-reviewer エージェント（sonnet / read-only / vision）: AC 一覧と証跡スクショだけを受け取り、写っている事実を根拠に判定する。証跡が無い・読み取れない AC は needs_human に倒し、雰囲気 pass を許さない。AC 外で気づいた異常は extra_findings として報告する
 
+### Changed
+
+- release.yml の `workflow_dispatch` に `bump` 入力（none / patch / minor / major）を追加し、`gh workflow run release.yml -f bump=minor` の一発でリリース全体（bump → main push → tag → Release）が GHA 内で完結するようになった。GITHUB_TOKEN の push は push トリガーを発火しないため、bump 後の tag / Release も同一 run 内で続けて実行する。`bump=none`（既定）は従来どおりの救済起動（現在値で tag / Release のみ）。ローカルの `release.sh` + push 経路も従来どおり使える
+
 ### Fixed
 
 - `scripts/release.sh` の CHANGELOG 編集を `sed` から `perl -i -pe` に置き換え、BSD/GNU 非互換（`sed -i` の引数の有無・`i\` 行挿入構文）を解消した。macOS ローカルと Linux runner の双方で同じ結果になる

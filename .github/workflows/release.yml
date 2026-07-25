@@ -1,16 +1,24 @@
 name: Release
 
 # バージョンの SSOT は .claude-plugin/plugin.json の version。
-# ローカルの scripts/release.sh が bump + CHANGELOG 昇格を commit するところまでを担い、
-# その commit が main に push された時点で以降（tag / GitHub Release）をこの workflow が完結させる。
+# 起動経路は 2 つ:
+#   1. ローカル: scripts/release.sh が bump + CHANGELOG 昇格を commit → main へ push → push トリガーで tag / Release
+#   2. GHA 完結: workflow_dispatch に bump を渡すと、bump ジョブが release.sh を runner 上で実行して
+#      main へ push し、そのまま同一 run 内で tag / Release まで完結する
+#      （GITHUB_TOKEN の push は push トリガーを発火しないため、別 run に任せる構成は成立しない）
 on:
   push:
     branches: [main]
     paths:
       - .claude-plugin/plugin.json
-  # push トリガーを取りこぼした場合（bump commit を push 済みで tag / Release だけ無い等）の救済。
-  # 入力は取らず、常に plugin.json の現在値を対象にする（SSOT を二重化しないため）。
+  # bump=none（既定）は従来どおりの救済起動: bump せず plugin.json の現在値で tag / Release だけ作る。
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "バージョン bump の種別（none は bump せず現在値で tag / Release のみ）"
+        type: choice
+        default: none
+        options: [none, patch, minor, major]
 
 # repo 既定は default_workflow_permissions=read のため、tag push に必要な write を明示する。
 permissions:
@@ -22,11 +30,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  bump:
+    # workflow_dispatch で bump 種別が指定されたときだけ動く
+    if: github.event_name == 'workflow_dispatch' && inputs.bump != 'none'
+    runs-on: ubuntu-latest
+    env:
+      # CHANGELOG の日付が runner の UTC で日本の前日にならないようにする
+      TZ: Asia/Tokyo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: release.sh で bump して main へ push
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          ./scripts/release.sh "${{ inputs.bump }}"
+          git push origin main
+
   release:
+    # push トリガー時は bump ジョブが skipped、dispatch + bump 時は success の後に走る。
+    # bump が failure（[Unreleased] 空等）なら走らない
+    needs: [bump]
+    if: always() && (needs.bump.result == 'success' || needs.bump.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          # bump ジョブが push した commit を含む最新 main を対象にする
+          # （push トリガー時も plugin.json の現在値 = SSOT を読む意味は同じ）
+          ref: main
           # 既存 tag の有無を判定するため全履歴 + tag を取得する
           fetch-depth: 0
 

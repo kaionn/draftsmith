@@ -28,7 +28,18 @@
 
 ### リリース手順
 
-機能変更のコミットを済ませたうえで、以下の 2 コマンドで完結する。
+機能変更のコミット + push を済ませたうえで、GHA 完結の 1 コマンドが基本形:
+
+```bash
+gh workflow run release.yml -f bump=<major|minor|patch>
+```
+
+bump ジョブが runner 上で `release.sh` を実行して main へ push し、同一 run 内で
+tag + GitHub Release まで完結する（GITHUB_TOKEN の push は push トリガーを発火しない
+ため、別 run に分けない）。CHANGELOG の `[Unreleased]` が空なら bump ジョブが落ち、
+Release は作られない。
+
+ローカル経路も従来どおり使える:
 
 ```bash
 ./scripts/release.sh <major|minor|patch>
