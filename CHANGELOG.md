@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - /verify-report のレポートで証跡スクショをクリックすると、オーバーレイで拡大表示できるようになった（クリックまたは Esc で閉じる）。原寸がグリッド幅より小さい画像も `object-fit: contain` でビューポートに収まる最大サイズへ拡大する
+- 拡大表示のアクセシビリティ: 明示的な × 閉じるボタンを追加し、スクショをキーボード操作（Tab でフォーカス + Enter / Space）でも開けるようにした。開くと × ボタンへ、閉じると元のスクショへフォーカスが移る
+- /diff-review: グループレベルの `plan_note`（Pass 2 でのグループ全体照合サマリー）を出力契約に正式追加し、レビュー画面に「plan 照合」として描画するようにした。個別指摘に紐づく備考は従来どおり finding 側の `plan_note` に書く
+- /verify-report: 「従来から変わらない」系 AC には実装前の同一画面スクショ（before）も証跡に含める運用を Step 3 に明記。before が無い場合に needs_human になるのは正しい出力として受け入れる
 
 ## [1.6.0] - 2026-07-25
 

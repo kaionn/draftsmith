@@ -253,6 +253,23 @@
     height: 100%;
     object-fit: contain;
   }
+
+  .lightbox-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .lightbox-close:hover { background: rgba(0, 0, 0, 0.8); }
 </style>
 </head>
 <body>
@@ -323,12 +340,19 @@
   }
 
   var lightbox = null;
+  var lastTrigger = null;
 
   function ensureLightbox() {
     if (lightbox) return lightbox;
     lightbox = document.createElement("div");
     lightbox.className = "lightbox";
     lightbox.appendChild(document.createElement("img"));
+    var closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "lightbox-close";
+    closeBtn.setAttribute("aria-label", "拡大表示を閉じる");
+    closeBtn.textContent = "×";
+    lightbox.appendChild(closeBtn);
     lightbox.addEventListener("click", closeLightbox);
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") closeLightbox();
@@ -337,16 +361,24 @@
     return lightbox;
   }
 
-  function openLightbox(src, alt) {
+  function openLightbox(src, alt, trigger) {
+    lastTrigger = trigger || null;
     var lb = ensureLightbox();
     var img = lb.querySelector("img");
     img.src = src;
     img.alt = alt || "";
     lb.classList.add("open");
+    var btn = lb.querySelector(".lightbox-close");
+    if (btn) btn.focus();
   }
 
   function closeLightbox() {
-    if (lightbox) lightbox.classList.remove("open");
+    if (lightbox && lightbox.classList.contains("open")) {
+      lightbox.classList.remove("open");
+      // キーボード操作で開いた場合に元のスクショへフォーカスを返す
+      if (lastTrigger && lastTrigger.focus) lastTrigger.focus();
+      lastTrigger = null;
+    }
   }
 
   function renderShot(sid) {
@@ -359,8 +391,16 @@
     img.src = s.src;
     img.alt = sid + " " + (s.caption || "");
     img.loading = "lazy";
+    img.setAttribute("role", "button");
+    img.tabIndex = 0;
     img.addEventListener("click", function () {
-      openLightbox(s.src, img.alt);
+      openLightbox(s.src, img.alt, img);
+    });
+    img.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openLightbox(s.src, img.alt, img);
+      }
     });
     fig.appendChild(img);
     var cap = document.createElement("figcaption");

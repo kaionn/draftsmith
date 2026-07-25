@@ -356,6 +356,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                 "intent": _require_str_field(g, "intent", f"group {gid}", warnings),
                 "tags": g.get("tags") if isinstance(g.get("tags"), list) else [],
                 "risk": _normalize_risk(g, gid, warnings),
+                "plan_note": _opt_str(g, "plan_note"),
                 "findings": _normalize_findings(g, gid, warnings),
                 "hunks": list(g.get("hunks", []) or []),
             }
@@ -375,6 +376,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                 "intent": "自動収容。内容を個別に確認すること。",
                 "tags": ["chore"],
                 "risk": "caution",
+                "plan_note": "",
                 "findings": [],
                 "hunks": unassigned,
             }

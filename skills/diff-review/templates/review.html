@@ -295,6 +295,17 @@
     margin: 0 0 10px;
   }
 
+  .group-plan-note {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--text-muted);
+    border-left: 3px solid var(--border);
+    padding-left: 10px;
+    margin: 0 0 10px;
+  }
+
+  .group-plan-note strong { font-weight: 600; }
+
   .findings-list {
     list-style: none;
     padding: 0;
@@ -903,6 +914,16 @@
       intentEl.appendChild(intentLabel);
       intentEl.appendChild(document.createTextNode(g.intent));
       card.appendChild(intentEl);
+
+      if (g.plan_note) {
+        var planNoteEl = document.createElement("p");
+        planNoteEl.className = "group-plan-note";
+        var planNoteLabel = document.createElement("strong");
+        planNoteLabel.textContent = "plan 照合: ";
+        planNoteEl.appendChild(planNoteLabel);
+        planNoteEl.appendChild(document.createTextNode(g.plan_note));
+        card.appendChild(planNoteEl);
+      }
 
       if (g.findings.length > 0) {
         var findingsList = document.createElement("div");
