@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-25
+
 ### Added
 
 - plan ファイル（一時設計文書）: /draftsmith が設計確定後に `plans/{task-slug}.md` を書き出す（`--no-plan-file` で省略可）。1 タスク分の設計意図（目的・受け入れ基準・設計要旨・mini-ADR・AI が下した判断）を保持する一時文書で、タスク台帳（Plans.md）の代替ではない。テンプレート `templates/plan-file.md` を追加
@@ -72,7 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/kaionn/draftsmith/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/kaionn/draftsmith/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/kaionn/draftsmith/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/kaionn/draftsmith/compare/v1.1.0...v1.2.0
