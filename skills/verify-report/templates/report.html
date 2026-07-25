@@ -172,7 +172,7 @@
     flex: 1 1 280px;
   }
 
-  .shot img { display: block; width: 100%; height: auto; }
+  .shot img { display: block; width: 100%; height: auto; cursor: zoom-in; }
 
   .shot-caption {
     font-size: 11.5px;
@@ -230,6 +230,28 @@
     display: none;
     white-space: pre;
     overflow-x: auto;
+  }
+
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    cursor: zoom-out;
+    padding: 24px;
+  }
+
+  .lightbox.open { display: flex; }
+
+  .lightbox img {
+    /* 原寸がグリッド幅より小さい画像でも「開いたら小さくなる」を起こさないよう、
+       常にビューポートに収まる最大サイズへ拡大縮小する（contain で比率維持） */
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 </style>
 </head>
@@ -300,6 +322,33 @@
     chipNeeds.classList.toggle("hot-needs", counts.needs_human > 0);
   }
 
+  var lightbox = null;
+
+  function ensureLightbox() {
+    if (lightbox) return lightbox;
+    lightbox = document.createElement("div");
+    lightbox.className = "lightbox";
+    lightbox.appendChild(document.createElement("img"));
+    lightbox.addEventListener("click", closeLightbox);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeLightbox();
+    });
+    document.body.appendChild(lightbox);
+    return lightbox;
+  }
+
+  function openLightbox(src, alt) {
+    var lb = ensureLightbox();
+    var img = lb.querySelector("img");
+    img.src = src;
+    img.alt = alt || "";
+    lb.classList.add("open");
+  }
+
+  function closeLightbox() {
+    if (lightbox) lightbox.classList.remove("open");
+  }
+
   function renderShot(sid) {
     var s = shots[sid];
     if (!s) return null;
@@ -310,6 +359,9 @@
     img.src = s.src;
     img.alt = sid + " " + (s.caption || "");
     img.loading = "lazy";
+    img.addEventListener("click", function () {
+      openLightbox(s.src, img.alt);
+    });
     fig.appendChild(img);
     var cap = document.createElement("figcaption");
     cap.className = "shot-caption";
