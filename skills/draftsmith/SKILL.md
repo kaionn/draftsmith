@@ -1,6 +1,6 @@
 ---
 name: draftsmith
-description: 設計ファーストのインナーループを 1 タスク分回す。自然言語の要件（または Plans.md の 1 タスク行）を受け取り、タスクの軽重で full / light の 2 レーンを入口で自動選択し、full は要件正規化 → designer 設計 → 形式監査 3 層 + auditor 独立監査 → implementer 実装 → reviewer-light「指摘なし」まで、light は designer を省いて main が brief を直接書き reviewer-light 1 巡で自走する。「設計から実装して」「draftsmith で」「設計ファーストで進めて」で発火。--gated で要件確定・設計確定を人間確認に、--full / --light でレーンを強制指定、--no-audit で auditor 独立監査を省略、--fable で designer を Fable モデルで起動する（無許可の Fable 使用は禁止）。
+description: 設計ファーストのインナーループを 1 タスク分回す。自然言語の要件（または Plans.md の 1 タスク行）を受け取り、タスクの軽重で full / light の 2 レーンを入口で自動選択し、full は要件正規化 → designer 設計 → 形式監査 3 層 + auditor 独立監査 → implementer 実装 → reviewer-light「指摘なし」まで、light は designer を省いて main が brief を直接書き reviewer-light 1 巡で自走する。設計確定後は一時設計文書（plans/{task-slug}.md）を書き出し、/diff-review の plan 照合と /plan-commit の畳み込みコミットにつなぐ。「設計から実装して」「draftsmith で」「設計ファーストで進めて」で発火。--gated で要件確定・設計確定を人間確認に、--full / --light でレーンを強制指定、--no-audit で auditor 独立監査を省略、--no-plan-file で plan ファイル書き出しを省略、--fable で designer を Fable モデルで起動する（無許可の Fable 使用は禁止）。
 user-invocable: true
 ---
 
@@ -13,9 +13,29 @@ user-invocable: true
 
 扱うのは「1 タスク分の 要件 → 設計 → 監査 → 実装 → light レビュー」だけ。
 
-- タスク台帳・進捗管理は持たない（claude-code-harness の Plans.md 等の領分）
-- PR 作成・commit・push はしない（**不変ゲート**。下記）
+- タスク台帳・進捗管理は持たない（claude-code-harness の Plans.md 等の領分）。
+  設計確定後に書き出す plan ファイル（下記）は **1 タスクの一時設計文書**であって、
+  台帳の代替ではない
+- PR 作成・commit・push はしない（**不変ゲート**。下記）。plan ファイルを
+  コミットメッセージへ畳み込む唯一の経路は別スキル /plan-commit（人間確認付き）
 - 複数タスクの一括処理はしない。複数頼まれたら 1 タスクずつ回す
+
+## plan ファイル（一時設計文書）
+
+設計確定後、リポジトリ内 `plans/{task-slug}.md` に `templates/plan-file.md` の形式で
+設計文書を書き出す（`--no-plan-file` 指定時はスキップ）。書き出すタイミングは
+full レーンが Step 4 の末尾、light レーンが Step L2 の末尾。
+
+- **一時文書**: コミットせず untracked のまま置く。タスク完了後、人間が /plan-commit で
+  コミットメッセージに畳み込んで削除する（設計意図はコミット履歴に残る）
+- **/diff-review との接続**: /diff-review の Pass 2（plan 照合）が `plans/*.md` を
+  自動発見して背景情報に使う
+- **台帳と混同しない**: repo ルートの `Plans.md`（タスク台帳・永続）とは役割も寿命も
+  別物。テンプレート冒頭の警告引用ブロックは必ず残す
+- task-slug は英語ケバブケース（例: `fix-login-redirect`）。同名ファイルが既にあれば
+  上書きせず `-2` 等の連番を付け、その旨を報告する
+- チーム共有リポジトリ等、一時ファイルを置くべきでない運用のリポジトリでは書き出しを
+  スキップし、完了報告に一行記す
 
 ## モード
 
@@ -141,6 +161,10 @@ designer の確認事項リスト（推奨デフォルト付き）を処理す�
   人間に確定してもらう
 - gated モード: AskUserQuestion でユーザーに確定してもらう
 
+確認事項の確定が済んだら（= 設計確定）、`templates/plan-file.md` の形式で
+`plans/{task-slug}.md` を書き出す（Status: designed。「plan ファイル」節参照。
+`--no-plan-file` 時はスキップ）。
+
 ### Step 5: implementer 起動 → 中央検証
 
 確定済み brief を implementer にバックグラウンドで渡す（Step 2 と同じく宣言止まり禁止）。
@@ -170,6 +194,10 @@ designer の確認事項リスト（推奨デフォルト付き）を処理す�
 
 ### Step 7: 完了報告
 
+plan ファイルを書き出している場合は、先に更新する: Status を `implemented` に変え、
+「AI が下した判断」節に下記 2 の内容を転記する（コミット履歴に判断記録ごと
+畳み込まれるようにするため）。
+
 以下の構成で報告し、**commit / push はせず**に終える（不変ゲート。コミットするかは人間の判断）:
 
 1. **変更サマリー**: 何がどう変わったか（ファイル一覧 + 要旨）
@@ -182,6 +210,8 @@ designer の確認事項リスト（推奨デフォルト付き）を処理す�
 
 差分が大きく目視レビューが重い場合は、`/diff-review` で解説つきレビュー画面を
 生成できることを報告に一言添えてよい（生成するかは人間の判断。勝手に起動しない）。
+plan ファイルがある場合は「コミット時は `/plan-commit` で plan を畳み込める」ことも
+一言添える（コミット自体は不変ゲートのとおり人間の判断）。
 
 ## light レーン（5 ステップ）
 
@@ -206,6 +236,9 @@ main 自身が書く。対象ファイルは必ず Read してからアンカー
 書いてみてアンカー特定に調査が必要だと分かったら、それはレーン判定の誤りの証拠なので
 full レーンへ昇格する（Step 1 からやり直し）。
 
+brief が書けたら、`plans/{task-slug}.md` を軽量版で書き出す（Status: designed。
+mini-ADR 節は「なし（方針一意のため light レーンで実施）」。`--no-plan-file` 時はスキップ）。
+
 ### Step L3: implementer 起動 → 中央検証
 
 full の Step 5 と同一に行う（バックグラウンド起動・スキップ報告の確認・
@@ -226,6 +259,8 @@ reviewer-light を 1 回だけかける（full のような「指摘なし」ま
 
 full の Step 7 と同じ構成（変更サマリー / AI が下した判断 / 検証結果 / 残課題・懸念）で
 報告し、commit / push はせずに終える。「AI が下した判断」の先頭にレーン判定の理由を書く。
+plan ファイルの更新（Status: implemented + 判断転記）と /plan-commit の一言案内も
+Step 7 と同様に行う。
 
 ### 昇格ルール（light → full）
 

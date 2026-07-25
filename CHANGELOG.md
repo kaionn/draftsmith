@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- plan ファイル（一時設計文書）: /draftsmith が設計確定後に `plans/{task-slug}.md` を書き出す（`--no-plan-file` で省略可）。1 タスク分の設計意図（目的・受け入れ基準・設計要旨・mini-ADR・AI が下した判断）を保持する一時文書で、タスク台帳（Plans.md）の代替ではない。テンプレート `templates/plan-file.md` を追加
+- /plan-commit スキル: plan ファイルを「subject 一行 + body に設計文書」のコミットメッセージへ畳み込み、プレビューを人間が承認してからコミットして plan ファイルを削除する。設計意図の永続化先をファイルから git 履歴に移す唯一の経路（push・PR 作成はしない）
+- /diff-review Pass 2 の背景情報探索: repo ルートの `plans/*.md`（一時設計文書）を自動発見して plan 照合に使う
+
 ## [1.4.0] - 2026-07-25
 
 ### Added

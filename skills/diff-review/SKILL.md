@@ -69,9 +69,15 @@ return の JSON を `<workdir>/groups.json` に保存する（コードフェン
 
 ### Pass 2: plan 照合（背景情報があるときのみ）
 
-この差分の背景（plan ファイル・要件書・/draftsmith の brief・Plans.md のタスク行・
-ユーザーの説明など）をあなたが知っている、またはリポジトリ内で特定できるなら、
-同じ diff-analyzer に SendMessage で渡して照合させる:
+背景情報の探索は次の順で行う:
+
+1. **repo ルートの `plans/*.md` を確認する**（/draftsmith が書き出す一時設計文書。
+   冒頭に `> ⚠ 一時設計文書` の警告引用ブロックを持つ）。今回の差分に対応するものが
+   あればそれが第一の背景情報
+2. それ以外にあなたが知っている背景（要件書・/draftsmith の brief・Plans.md の
+   タスク行・ユーザーの説明など）
+
+見つかった背景を、同じ diff-analyzer に SendMessage で渡して照合させる:
 
 - 背景情報の本文（またはファイルパス）
 - 「Pass 2（plan 照合）である。指摘の削除・弱体化は禁止。`plan_note` の追記と

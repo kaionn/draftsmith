@@ -91,6 +91,17 @@ Each finding carries adopt / reject buttons and comment fields; a **feedback bui
 section assembles the adopted findings plus your comments into a markdown block you
 copy straight back into the working session.
 
+```
+/plan-commit                 # fold the plan file into a commit, then delete it
+```
+
+Once the design is confirmed, `/draftsmith` writes it to `plans/{task-slug}.md` — an
+**ephemeral plan file** (skip with `--no-plan-file`). It is not a task ledger: it lives
+for one task, feeds `/diff-review`'s pass-2 reconciliation automatically, and is finally
+folded into the commit itself by `/plan-commit` — one-line subject plus the plan as the
+commit body, previewed and human-approved — which then deletes the file. Design intent
+ends up in git history instead of a stale document.
+
 - **Autonomous mode (default)**: no human gates between requirement and "no findings".
   Open questions are settled with conservative assumptions (preserve behavior, minimize
   scope) and every such decision is listed in a "Decisions made by AI" section of the
@@ -238,6 +249,16 @@ git の状態には一切触れない。
 セクションが採用された指摘 + コメントを markdown に整形、クリップボードにコピーして
 元の作業セッションへそのまま貼り戻せる。
 
+```
+/plan-commit                 # plan ファイルをコミットに畳み込んで削除
+```
+
+`/draftsmith` は設計確定後に `plans/{task-slug}.md` へ**一時 plan ファイル**を書き出す
+（`--no-plan-file` で省略可）。これはタスク台帳ではない: 1 タスク分だけ生きて、
+`/diff-review` の Pass 2 照合に自動で使われ、最後は `/plan-commit` がコミットへ
+畳み込む — subject 一行 + body に plan 本文、プレビューを人間が承認してからコミットし、
+plan ファイルを削除する。設計意図は陳腐化するドキュメントではなく git 履歴に残る。
+
 - **自律モード（既定）**: 要件入力から「指摘なし」まで人間ゲートなしで自走する。
   未決事項は保守的仮定（既存挙動維持・スコープ最小）で確定し、下した判断はすべて
   完了報告の「AI が下した判断」節に一覧で出る。逃げ道を一つだけ持つ:
@@ -282,10 +303,11 @@ agents/implementer.md           # 逐語適用（設計判断なし）
 agents/reviewer-light.md        # 軽量レビュー（定型出力）
 agents/diff-analyzer.md         # 差分の意味グルーピング（読み取り専用）
 skills/draftsmith/SKILL.md      # メインフロー（7 ステップ）
-skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR
+skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR・plan ファイル
 skills/diff-review/SKILL.md     # 解説つき差分レビュー画面（/diff-review）
 skills/diff-review/scripts/     # diff 分割・HTML ビルド（Python stdlib のみ）
 skills/diff-review/templates/   # レビュー画面テンプレート
+skills/plan-commit/SKILL.md     # plan ファイルの畳み込みコミット（/plan-commit）
 ```
 
 ## License
