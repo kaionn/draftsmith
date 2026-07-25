@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- /verify-report のレポートで証跡スクショをクリックすると、オーバーレイで拡大表示できるようになった（クリックまたは Esc で閉じる）。原寸がグリッド幅より小さい画像も `object-fit: contain` でビューポートに収まる最大サイズへ拡大する
+
 ## [1.6.0] - 2026-07-25
 
 ### Added
