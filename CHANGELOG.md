@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-25
+
 ### Added
 
 - /verify-report スキル: 実装後の E2E 検証を証跡スクリーンショット付きの自己完結 HTML レポートにする。plan ファイル（または指定シナリオ）の受け入れ基準ごとに main がブラウザ操作でスクショを収集し、実装 diff を知らない evidence-reviewer が fresh context でスクショだけを目視して pass / fail / needs_human を判定する（自己追認の排除）。レポートはスクショを data URI で埋め込んだ単一 HTML で、AC × 証跡 × 判定の対応表と PR 転記用サマリー（markdown 生成 + クリップボードコピー）を含む。全 AC の判定被覆はビルドスクリプトが機械検証する
@@ -88,7 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/kaionn/draftsmith/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/kaionn/draftsmith/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/kaionn/draftsmith/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/kaionn/draftsmith/compare/v1.2.0...v1.3.0
