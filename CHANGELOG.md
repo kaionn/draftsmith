@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- リリース自動化: `.github/workflows/release.yml` を追加し、`main` への push（`.claude-plugin/plugin.json` の変更を含むもの）で annotated tag 作成と GitHub Release の公開までを完結させた。手動の `git push --tags` / `gh release create` は不要になり、リリース手順は `./scripts/release.sh <bump>` + `git push origin main` の 2 コマンドになる。tag / Release はいずれも「既存ならスキップ」で冪等。取りこぼし時は `gh workflow run release.yml` で救済発火する（対象バージョンは常に `plugin.json` の現在値）
+- `scripts/changelog-section.sh`: CHANGELOG から指定セクション（バージョン or `Unreleased`）の本文を抽出する。GitHub Release のノート生成に使い、本文が空なら exit 1 でリリースを止める
+
+### Changed
+
+- `scripts/release.sh` は tag を作らず commit までを担うようになった（tag は workflow が作成するため）。あわせて `[Unreleased]` が空のまま昇格しようとした場合に abort するガードを追加（ノートが空の Release を push 前に防ぐ）
+- GitHub Release のノートが `--notes-from-tag`（tag メッセージ = バージョン文字列のみ）から CHANGELOG の該当セクション本文に変わり、実質空だったリリースノートが埋まるようになった
+
 ## [1.3.0] - 2026-07-25
 
 ### Added

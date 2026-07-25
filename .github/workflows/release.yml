@@ -1,0 +1,103 @@
+name: Release
+
+# バージョンの SSOT は .claude-plugin/plugin.json の version。
+# ローカルの scripts/release.sh が bump + CHANGELOG 昇格を commit するところまでを担い、
+# その commit が main に push された時点で以降（tag / GitHub Release）をこの workflow が完結させる。
+on:
+  push:
+    branches: [main]
+    paths:
+      - .claude-plugin/plugin.json
+  # push トリガーを取りこぼした場合（bump commit を push 済みで tag / Release だけ無い等）の救済。
+  # 入力は取らず、常に plugin.json の現在値を対象にする（SSOT を二重化しないため）。
+  workflow_dispatch:
+
+# repo 既定は default_workflow_permissions=read のため、tag push に必要な write を明示する。
+permissions:
+  contents: write
+
+# 同一バージョンに対する tag push / Release 作成が並列で走らないようにする。
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 既存 tag の有無を判定するため全履歴 + tag を取得する
+          fetch-depth: 0
+
+      - name: バージョンを解決して 3 箇所の整合を検証
+        id: version
+        run: |
+          set -euo pipefail
+          V=$(jq -r '.version' .claude-plugin/plugin.json)
+          MV=$(jq -r '.metadata.version' .claude-plugin/marketplace.json)
+          PV=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
+          if [[ -z "$V" || "$V" == "null" ]]; then
+            echo "::error::plugin.json の version を読めなかった"
+            exit 1
+          fi
+          if [[ "$V" != "$MV" || "$V" != "$PV" ]]; then
+            echo "::error::バージョン不一致 plugin.json=${V} marketplace.metadata=${MV} marketplace.plugins[0]=${PV}"
+            exit 1
+          fi
+          # tag は HEAD ではなく plugin.json を最後に変更したコミット（= bump commit）に打つ。
+          # push トリガーでは両者は一致するが、workflow_dispatch での救済時は
+          # bump commit の後に別のコミットが積まれていることがあり、HEAD に打つと tag 位置がずれる。
+          SHA=$(git log -1 --format=%H -- .claude-plugin/plugin.json)
+          if [[ -z "$SHA" ]]; then
+            echo "::error::plugin.json の変更コミットを特定できなかった"
+            exit 1
+          fi
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${V}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "リリース対象: v${V} (${SHA})"
+          git log -1 --format='  bump commit: %s' "$SHA"
+
+      - name: CHANGELOG からリリースノートを抽出
+        run: |
+          set -euo pipefail
+          # 該当セクションが空ならここで落ちる（ノートが空の Release を作らせない）
+          ./scripts/changelog-section.sh "${{ steps.version.outputs.version }}" > /tmp/release-notes.md
+          {
+            echo "${{ steps.version.outputs.tag }}"
+            echo
+            cat /tmp/release-notes.md
+          } > /tmp/tag-message.md
+          echo "--- release notes ---"
+          cat /tmp/release-notes.md
+
+      - name: tag を作成して push（既存ならスキップ）
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "tag ${TAG} は既に存在する。作成をスキップ"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "${TAG}" -F /tmp/tag-message.md "${{ steps.version.outputs.sha }}"
+          git push origin "${TAG}"
+          echo "tag ${TAG} を ${{ steps.version.outputs.sha }} に作成した"
+
+      - name: GitHub Release を作成（既存ならスキップ）
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Release ${TAG} は既に存在する。作成をスキップ"
+            exit 0
+          fi
+          gh release create "${TAG}" \
+            --title "${TAG}" \
+            --notes-file /tmp/release-notes.md \
+            --verify-tag
+          echo "Release ${TAG} を作成した"

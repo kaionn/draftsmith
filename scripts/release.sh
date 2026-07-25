@@ -4,7 +4,10 @@ set -euo pipefail
 # Usage: ./scripts/release.sh <major|minor|patch>
 # - plugin.json と marketplace.json のバージョンを一括更新
 # - CHANGELOG.md の [Unreleased] を新バージョンに昇格
-# - git commit + tag + GitHub Release を作成
+# - git commit を作成（tag / GitHub Release は作らない）
+#
+# tag と GitHub Release は .github/workflows/release.yml が担う。
+# この commit を main へ push した時点で workflow が発火し、リリースが公開される。
 
 BUMP_TYPE="${1:-}"
 
@@ -17,6 +20,13 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 PLUGIN_JSON="$REPO_ROOT/.claude-plugin/plugin.json"
 MARKETPLACE_JSON="$REPO_ROOT/.claude-plugin/marketplace.json"
 CHANGELOG="$REPO_ROOT/CHANGELOG.md"
+
+# [Unreleased] が空のまま昇格すると、リリースノートが空の Release になる。
+# workflow 側でも同じガードが効くが、push 前にローカルで止める。
+if ! "$REPO_ROOT/scripts/changelog-section.sh" Unreleased >/dev/null 2>&1; then
+  echo "エラー: CHANGELOG.md の [Unreleased] が空。リリースノートになる内容を先に追記して" >&2
+  exit 1
+fi
 
 CURRENT_VERSION=$(jq -r '.version' "$PLUGIN_JSON")
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
@@ -59,15 +69,16 @@ ${NEW_LINK}
 
 echo "Updated: plugin.json, marketplace.json, CHANGELOG.md"
 
-# 4. Commit + Tag
+# 4. Commit（tag は workflow が作るのでここでは作らない）
 git add "$PLUGIN_JSON" "$MARKETPLACE_JSON" "$CHANGELOG"
 git commit -m "v${NEW_VERSION} リリース"
-git tag -a "v${NEW_VERSION}" -m "v${NEW_VERSION}"
 
-echo "Created commit and tag: v${NEW_VERSION}"
+echo "Created commit: v${NEW_VERSION}"
 
-# 5. GitHub Release (push はユーザーに任せる)
+# 5. 以降は .github/workflows/release.yml が担う
 echo ""
 echo "次のステップ:"
-echo "  git push origin main --tags"
-echo "  gh release create v${NEW_VERSION} --title 'v${NEW_VERSION}' --notes-from-tag"
+echo "  git push origin main"
+echo ""
+echo "push した時点で workflow が tag v${NEW_VERSION} と GitHub Release を作成して公開する（不可逆）。"
+echo "リリースノートは CHANGELOG.md の [${NEW_VERSION}] セクションがそのまま使われる。"
