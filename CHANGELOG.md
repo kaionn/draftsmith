@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-25
+
 ### Added
 
 - リリース自動化: `.github/workflows/release.yml` を追加し、`main` への push（`.claude-plugin/plugin.json` の変更を含むもの）で annotated tag 作成と GitHub Release の公開までを完結させた。手動の `git push --tags` / `gh release create` は不要になり、リリース手順は `./scripts/release.sh <bump>` + `git push origin main` の 2 コマンドになる。tag / Release はいずれも「既存ならスキップ」で冪等。取りこぼし時は `gh workflow run release.yml` で救済発火する（対象バージョンは常に `plugin.json` の現在値）
@@ -64,7 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/kaionn/draftsmith/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/kaionn/draftsmith/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/kaionn/draftsmith/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/kaionn/draftsmith/compare/v1.0.0...v1.1.0
