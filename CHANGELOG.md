@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-07-25
+
 ### Added
 
 - /verify-report のレポートで証跡スクショをクリックすると、オーバーレイで拡大表示できるようになった（クリックまたは Esc で閉じる）。原寸がグリッド幅より小さい画像も `object-fit: contain` でビューポートに収まる最大サイズへ拡大する
@@ -97,7 +99,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/kaionn/draftsmith/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/kaionn/draftsmith/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/kaionn/draftsmith/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/kaionn/draftsmith/compare/v1.3.0...v1.4.0

@@ -1,6 +1,6 @@
 {
   "name": "draftsmith",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Design-first inner loop for Claude Code: requirements -> design -> audit -> implementation -> light review, one task at a time. A dedicated designer agent drafts, the main session audits, and an implementer applies verbatim briefs.",
   "author": {
     "name": "kaionn",
