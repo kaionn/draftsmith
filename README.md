@@ -82,7 +82,14 @@ split mechanically, a read-only **diff-analyzer** agent groups them into semanti
 change groups (intent, tags, risk label, findings), and a deterministic build script
 renders them with per-group approval checkboxes (persisted in localStorage) and a
 progress bar. Hunk coverage (no missing / duplicated hunks) is machine-verified.
-View + check only — it never touches git state.
+It never touches git state.
+
+Analysis runs in **two passes** to counter sycophancy: pass 1 is blind (no plan or
+background is given — the diff must stand on its own), pass 2 reconciles against the
+plan, only annotating findings with plan context — never deleting or softening them.
+Each finding carries adopt / reject buttons and comment fields; a **feedback builder**
+section assembles the adopted findings plus your comments into a markdown block you
+copy straight back into the working session.
 
 - **Autonomous mode (default)**: no human gates between requirement and "no findings".
   Open questions are settled with conservative assumptions (preserve behavior, minimize
@@ -223,7 +230,13 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 意味づけは読み取り専用の **diff-analyzer** agent が変更グループ（意図・タグ・リスク・
 指摘）として行い、決定的なビルドスクリプトが承認チェックボックス（localStorage 永続）と
 進捗バー付きで描画する。hunk の被覆（漏れ・重複）は機械検証される。
-閲覧 + 承認チェックのみで、git の状態には一切触れない。
+git の状態には一切触れない。
+
+分析は忖度対策の **2 パス制**: Pass 1 は plan・背景を渡さない blind 分析（差分単体で
+妥当かだけを見る）、Pass 2 で plan と照合して備考を追記する — 指摘の削除・弱体化は
+禁止。各指摘には採用 / 却下ボタンとコメント欄が付き、**フィードバック組み立て**
+セクションが採用された指摘 + コメントを markdown に整形、クリップボードにコピーして
+元の作業セッションへそのまま貼り戻せる。
 
 - **自律モード（既定）**: 要件入力から「指摘なし」まで人間ゲートなしで自走する。
   未決事項は保守的仮定（既存挙動維持・スコープ最小）で確定し、下した判断はすべて

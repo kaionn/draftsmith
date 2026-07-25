@@ -256,6 +256,11 @@ def _normalize_risk(group: dict[str, Any], gid: str, warnings: list[str]) -> str
     return risk
 
 
+def _opt_str(f: dict[str, Any], field: str) -> str:
+    value = f.get(field)
+    return value if isinstance(value, str) else ""
+
+
 def _normalize_findings(group: dict[str, Any], gid: str, warnings: list[str]) -> list[dict[str, Any]]:
     findings = group.get("findings")
     if not isinstance(findings, list):
@@ -268,7 +273,22 @@ def _normalize_findings(group: dict[str, Any], gid: str, warnings: list[str]) ->
         if severity not in ALLOWED_SEVERITIES:
             warnings.append(f"severity が不正: {severity!r} (id={gid}) → info に丸めた")
             severity = "info"
-        normalized.append({"severity": severity, "text": f.get("text", "")})
+        text = _opt_str(f, "text")
+        # title 欠落は旧形式（text のみ）との後方互換: text 先頭から補う
+        title = _opt_str(f, "title") or (text[:30] + ("…" if len(text) > 30 else ""))
+        normalized.append(
+            {
+                # フィードバック組み立て（採用/却下/コメント）の localStorage キーと
+                # markdown 参照に使う安定 id
+                "id": f"{gid}-f{len(normalized) + 1}",
+                "severity": severity,
+                "title": title,
+                "text": text,
+                "location": _opt_str(f, "location"),
+                "suggestion": _opt_str(f, "suggestion"),
+                "plan_note": _opt_str(f, "plan_note"),
+            }
+        )
     return normalized
 
 

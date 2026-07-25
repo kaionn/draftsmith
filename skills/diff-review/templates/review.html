@@ -21,6 +21,7 @@
     --risk-low: #2f9e44;
     --risk-caution: #d9822b;
     --risk-danger: #d6336c;
+    --accent: #2563eb;
     --header-h: 64px;
   }
 
@@ -35,6 +36,7 @@
       --add-text: #7ee2a0;
       --del-bg: #3a1418;
       --del-text: #ff9aa5;
+      --accent: #4c8dff;
     }
   }
 
@@ -299,20 +301,179 @@
     margin: 0 0 14px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
   }
 
-  .finding {
-    font-size: 12px;
+  .finding-block {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    background: var(--bg);
+  }
+
+  .finding-block.rejected { opacity: 0.5; }
+
+  .finding-head {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     align-items: flex-start;
   }
 
-  .finding-warn { color: var(--del-text); }
-  .finding-info { color: var(--text-muted); }
+  .finding-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
 
-  .finding-icon { flex-shrink: 0; }
+  .finding-warn .finding-icon, .finding-warn .finding-title { color: var(--del-text); }
+  .finding-info .finding-icon { color: var(--text-muted); }
+
+  .finding-icon { flex-shrink: 0; font-size: 13px; }
+
+  .verdict-group {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .verdict-btn {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .verdict-btn:hover { border-color: var(--text-muted); }
+
+  .verdict-btn.active-adopt {
+    color: var(--risk-low);
+    border-color: var(--risk-low);
+    font-weight: 700;
+  }
+
+  .verdict-btn.active-reject {
+    color: var(--risk-danger);
+    border-color: var(--risk-danger);
+    font-weight: 700;
+  }
+
+  .finding-loc {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .finding-field {
+    font-size: 12.5px;
+    line-height: 1.6;
+    margin-top: 6px;
+  }
+
+  .finding-field strong { color: var(--text-muted); font-weight: 600; }
+
+  .comment-details { margin-top: 8px; }
+
+  .comment-details summary {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .comment-details textarea,
+  #fb-output {
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    line-height: 1.6;
+    resize: vertical;
+    min-height: 56px;
+  }
+
+  .group-comment { margin-top: 12px; }
+
+  /* フィードバック組み立て */
+
+  .fb-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+
+  .fb-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .fb-chip {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .fb-chip.hot-adopt { color: var(--risk-low); border-color: var(--risk-low); }
+  .fb-chip.hot-pending { color: var(--risk-caution); border-color: var(--risk-caution); }
+
+  .fb-desc {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+  }
+
+  .fb-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .fb-btn {
+    font-size: 12.5px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .fb-btn:hover { border-color: var(--text-muted); }
+
+  .fb-btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .fb-btn-primary:hover { opacity: 0.9; border-color: var(--accent); }
+
+  #fb-output {
+    font-family: var(--mono);
+    font-size: 12px;
+    min-height: 220px;
+    display: none;
+    white-space: pre;
+    overflow-x: auto;
+  }
 
   /* hunk 表示 */
 
@@ -426,6 +587,24 @@
     <div id="group-details"></div>
   </section>
 
+  <section class="section" id="section-feedback">
+    <h2 class="section-heading">03 / フィードバック組み立て</h2>
+    <div class="fb-panel">
+      <div class="fb-chips">
+        <span class="fb-chip" id="chip-adopt">採用 0</span>
+        <span class="fb-chip" id="chip-reject">却下 0</span>
+        <span class="fb-chip" id="chip-pending">未判定 0</span>
+        <span class="fb-chip" id="chip-comment">コメント 0</span>
+      </div>
+      <p class="fb-desc">採用された指摘と追加コメントを、元の作業エージェントに渡す markdown にまとめます。</p>
+      <div class="fb-actions">
+        <button type="button" class="fb-btn fb-btn-primary" id="fb-generate">フィードバックを生成</button>
+        <button type="button" class="fb-btn" id="fb-copy">クリップボードにコピー</button>
+      </div>
+      <textarea id="fb-output" readonly spellcheck="false"></textarea>
+    </div>
+  </section>
+
   <section class="section" id="section-hidden">
     <h2 class="section-heading">diff 非表示のファイル</h2>
     <ul id="hidden-files-list"></ul>
@@ -467,6 +646,22 @@
     }
   }
 
+  function loadFb(key) {
+    var empty = { verdicts: {}, comments: {} };
+    try {
+      var raw = window.localStorage.getItem(key);
+      if (!raw) return empty;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return empty;
+      return {
+        verdicts: (parsed.verdicts && typeof parsed.verdicts === "object") ? parsed.verdicts : {},
+        comments: (parsed.comments && typeof parsed.comments === "object") ? parsed.comments : {}
+      };
+    } catch (e) {
+      return empty;
+    }
+  }
+
   function lineClass(t) {
     if (t === "+") return "add";
     if (t === "-") return "del";
@@ -481,6 +676,33 @@
 
   var storeKey = storageKeyOf(meta.state_key);
   var approved = new Set(loadApproved(storeKey));
+
+  var fbStoreKey = "diffreview:fb:" + meta.state_key;
+  var fb = loadFb(fbStoreKey);
+
+  // 表示順（= groups の並び順）どおりの finding 一覧。markdown の採番にも使う
+  var allFindings = [];
+  groups.forEach(function (g) {
+    g.findings.forEach(function (f) {
+      allFindings.push({ f: f, g: g });
+    });
+  });
+
+  function saveFb() {
+    try {
+      window.localStorage.setItem(fbStoreKey, JSON.stringify(fb));
+    } catch (e) {
+      // localStorage が使えない環境ではメモリ内のみで動作する
+    }
+  }
+
+  function verdictOf(fid) {
+    return fb.verdicts[fid] || "";
+  }
+
+  function commentOf(id) {
+    return (fb.comments[id] || "").trim();
+  }
 
   function renderHeader() {
     document.getElementById("review-title").textContent = data.review_title || "";
@@ -683,20 +905,16 @@
       card.appendChild(intentEl);
 
       if (g.findings.length > 0) {
-        var findingsList = document.createElement("ul");
+        var findingsList = document.createElement("div");
         findingsList.className = "findings-list";
         g.findings.forEach(function (f) {
-          var li = document.createElement("li");
-          li.className = "finding finding-" + f.severity;
-          var icon = document.createElement("span");
-          icon.className = "finding-icon";
-          icon.textContent = f.severity === "warn" ? "⚠" : "ℹ";
-          li.appendChild(icon);
-          li.appendChild(document.createTextNode(f.text));
-          findingsList.appendChild(li);
+          findingsList.appendChild(renderFinding(f));
         });
         card.appendChild(findingsList);
       }
+
+      card.appendChild(renderCommentBox(g.id, "group-comment", "このグループにコメント",
+        "フィードバックに含めるコメント（気づき・依頼など）"));
 
       g.hunks.forEach(function (hid) {
         var hunk = hunksById[hid];
@@ -705,6 +923,247 @@
       });
 
       container.appendChild(card);
+    });
+  }
+
+  function renderFinding(f) {
+    var block = document.createElement("div");
+    block.className = "finding-block finding-" + f.severity;
+    block.id = "finding-" + f.id;
+
+    var head = document.createElement("div");
+    head.className = "finding-head";
+
+    var icon = document.createElement("span");
+    icon.className = "finding-icon";
+    icon.textContent = f.severity === "warn" ? "⚠" : "ℹ";
+    head.appendChild(icon);
+
+    var title = document.createElement("span");
+    title.className = "finding-title";
+    title.textContent = f.title || f.text;
+    head.appendChild(title);
+
+    var verdictGroup = document.createElement("div");
+    verdictGroup.className = "verdict-group";
+    [["adopt", "採用"], ["reject", "却下"]].forEach(function (pair) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "verdict-btn";
+      btn.dataset.verdict = pair[0];
+      btn.textContent = pair[1];
+      btn.addEventListener("click", function () {
+        setVerdict(f.id, pair[0]);
+      });
+      verdictGroup.appendChild(btn);
+    });
+    head.appendChild(verdictGroup);
+    block.appendChild(head);
+
+    if (f.location) {
+      var loc = document.createElement("div");
+      loc.className = "finding-loc";
+      loc.textContent = f.location;
+      block.appendChild(loc);
+    }
+
+    if (f.text && f.text !== title.textContent) {
+      var textEl = document.createElement("div");
+      textEl.className = "finding-field";
+      textEl.textContent = f.text;
+      block.appendChild(textEl);
+    }
+
+    if (f.plan_note) {
+      var noteEl = document.createElement("div");
+      noteEl.className = "finding-field";
+      var noteLabel = document.createElement("strong");
+      noteLabel.textContent = "備考: ";
+      noteEl.appendChild(noteLabel);
+      noteEl.appendChild(document.createTextNode(f.plan_note));
+      block.appendChild(noteEl);
+    }
+
+    if (f.suggestion) {
+      var sugEl = document.createElement("div");
+      sugEl.className = "finding-field";
+      var sugLabel = document.createElement("strong");
+      sugLabel.textContent = "改善案: ";
+      sugEl.appendChild(sugLabel);
+      sugEl.appendChild(document.createTextNode(f.suggestion));
+      block.appendChild(sugEl);
+    }
+
+    block.appendChild(renderCommentBox(f.id, "finding-comment", "コメント",
+      "この指摘へのコメント（フィードバックに含まれる）"));
+
+    applyVerdictUi(block, verdictOf(f.id));
+    return block;
+  }
+
+  function renderCommentBox(id, extraClass, summaryText, placeholder) {
+    var details = document.createElement("details");
+    details.className = "comment-details " + extraClass;
+    var existing = commentOf(id);
+    if (existing) details.open = true;
+
+    var summary = document.createElement("summary");
+    summary.textContent = summaryText + (existing ? " ✎" : "");
+    details.appendChild(summary);
+
+    var textarea = document.createElement("textarea");
+    textarea.placeholder = placeholder;
+    textarea.value = fb.comments[id] || "";
+    textarea.addEventListener("input", function () {
+      if (textarea.value.trim() === "") {
+        delete fb.comments[id];
+      } else {
+        fb.comments[id] = textarea.value;
+      }
+      saveFb();
+      summary.textContent = summaryText + (textarea.value.trim() ? " ✎" : "");
+      updateChips();
+    });
+    details.appendChild(textarea);
+    return details;
+  }
+
+  function applyVerdictUi(block, verdict) {
+    block.classList.toggle("rejected", verdict === "reject");
+    var btns = block.querySelectorAll(".verdict-btn");
+    for (var i = 0; i < btns.length; i++) {
+      var v = btns[i].dataset.verdict;
+      btns[i].classList.toggle("active-adopt", verdict === "adopt" && v === "adopt");
+      btns[i].classList.toggle("active-reject", verdict === "reject" && v === "reject");
+    }
+  }
+
+  function setVerdict(fid, verdict) {
+    // 同じボタンをもう一度押したら未判定に戻す
+    if (fb.verdicts[fid] === verdict) {
+      delete fb.verdicts[fid];
+    } else {
+      fb.verdicts[fid] = verdict;
+    }
+    saveFb();
+    var block = document.getElementById("finding-" + fid);
+    if (block) applyVerdictUi(block, verdictOf(fid));
+    updateChips();
+  }
+
+  function updateChips() {
+    var adopt = 0;
+    var reject = 0;
+    allFindings.forEach(function (item) {
+      var v = verdictOf(item.f.id);
+      if (v === "adopt") adopt += 1;
+      else if (v === "reject") reject += 1;
+    });
+    var pending = allFindings.length - adopt - reject;
+    var comments = 0;
+    Object.keys(fb.comments).forEach(function (k) {
+      if ((fb.comments[k] || "").trim() !== "") comments += 1;
+    });
+
+    var chipAdopt = document.getElementById("chip-adopt");
+    var chipReject = document.getElementById("chip-reject");
+    var chipPending = document.getElementById("chip-pending");
+    var chipComment = document.getElementById("chip-comment");
+    chipAdopt.textContent = "採用 " + adopt;
+    chipReject.textContent = "却下 " + reject;
+    chipPending.textContent = "未判定 " + pending;
+    chipComment.textContent = "コメント " + comments;
+    chipAdopt.classList.toggle("hot-adopt", adopt > 0);
+    chipPending.classList.toggle("hot-pending", pending > 0);
+  }
+
+  function generateFeedback() {
+    var lines = [];
+    lines.push("# レビューフィードバック");
+    lines.push("");
+    lines.push("## 依頼");
+    lines.push("");
+    lines.push("- 以下の指摘が忖度なしで妥当かどうか精査してください。妥当でないものは理由を添えて指摘し返してください");
+    lines.push("- 対応方針に迷う点があれば、実装前に確認してください");
+
+    var adopted = allFindings.filter(function (item) {
+      return verdictOf(item.f.id) === "adopt";
+    });
+
+    adopted.forEach(function (item, idx) {
+      var f = item.f;
+      var g = item.g;
+      lines.push("");
+      lines.push("### " + (idx + 1) + ". " + (f.severity === "warn" ? "[警告] " : "[情報] ") + (f.title || ""));
+      lines.push("");
+      if (f.location) lines.push("- 場所: " + f.location);
+      lines.push("- 変更グループの意図: " + g.title + " — " + g.intent);
+      if (f.plan_note) lines.push("- 備考: " + f.plan_note);
+      if (f.text) lines.push("- 指摘: " + f.text);
+      if (f.suggestion) lines.push("- 改善案: " + f.suggestion);
+      var c = commentOf(f.id);
+      if (c) lines.push("- レビュアー追記: " + c.replace(/\r?\n/g, " / "));
+    });
+
+    var commentedGroups = groups.filter(function (g) {
+      return commentOf(g.id) !== "";
+    });
+    if (commentedGroups.length > 0) {
+      lines.push("");
+      lines.push("## 追加コメント");
+      commentedGroups.forEach(function (g) {
+        lines.push("");
+        lines.push("### " + g.title);
+        lines.push("");
+        lines.push(commentOf(g.id));
+      });
+    }
+
+    if (adopted.length === 0 && commentedGroups.length === 0) {
+      lines.push("");
+      lines.push("（採用された指摘・追加コメントはありません）");
+    }
+
+    return lines.join("\n") + "\n";
+  }
+
+  function showFeedback() {
+    var out = document.getElementById("fb-output");
+    out.value = generateFeedback();
+    out.style.display = "block";
+    return out;
+  }
+
+  function flashButton(btn, label) {
+    var original = btn.textContent;
+    btn.textContent = label;
+    btn.disabled = true;
+    window.setTimeout(function () {
+      btn.textContent = original;
+      btn.disabled = false;
+    }, 1500);
+  }
+
+  function initFeedbackActions() {
+    var generateBtn = document.getElementById("fb-generate");
+    var copyBtn = document.getElementById("fb-copy");
+
+    generateBtn.addEventListener("click", showFeedback);
+
+    copyBtn.addEventListener("click", function () {
+      var out = showFeedback();
+      var done = function () { flashButton(copyBtn, "コピーしました ✓"); };
+      var fallback = function () {
+        out.focus();
+        out.select();
+        try { document.execCommand("copy"); } catch (e) { /* 手動コピーに任せる */ }
+        done();
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(out.value).then(done, fallback);
+      } else {
+        fallback();
+      }
     });
   }
 
@@ -744,7 +1203,9 @@
   renderGroupList();
   renderGroupDetails();
   renderHiddenFiles();
+  initFeedbackActions();
   updateProgress();
+  updateChips();
 })();
 </script>
 </body>

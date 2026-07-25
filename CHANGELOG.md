@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- /diff-review フィードバック組み立て: レビュー画面に指摘ごとの採用 / 却下（未判定含む 3 状態）と指摘・グループ単位のコメント欄を追加。「フィードバックを生成」で採用された指摘 + 追加コメントを元の作業エージェントに渡す markdown に整形し、「クリップボードにコピー」でそのままセッションへ貼れる導線を用意（状態は localStorage 永続）。markdown 冒頭には忖度なしの精査を求める定型依頼文を含む
+- /diff-review 2 パスレビュー（忖度対策）: Pass 1 は plan・背景情報を渡さない blind 分析、Pass 2 で背景と照合して `plan_note` を追記する。Pass 1 指摘の削除・弱体化は禁止（「plan に則っている」を微妙な実装を通す理由にさせない）
+- diff-analyzer の findings を構造化: `title` / `location`（hunk id 含む）/ `suggestion` / `plan_note` を追加（旧 `text` のみの形式とも後方互換）。周辺コードを読んでも意図がつかめない変更は「意図不明・要改善」の warn として明示的に立てるルールを追加
+
 ## [1.2.0] - 2026-07-24
 
 ### Added
