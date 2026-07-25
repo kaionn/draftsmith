@@ -1,7 +1,7 @@
 {
   "name": "draftsmith",
   "metadata": {
-    "version": "1.2.0",
+    "version": "1.3.0",
     "description": "Self-marketplace for installing draftsmith as a single plugin."
   },
   "owner": {
@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "draftsmith",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "source": "./",
       "description": "Design-first inner loop for Claude Code: requirements -> design -> audit -> implementation -> light review, one task at a time.",
       "author": {

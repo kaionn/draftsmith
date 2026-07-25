@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-25
+
 ### Added
 
 - /diff-review フィードバック組み立て: レビュー画面に指摘ごとの採用 / 却下（未判定含む 3 状態）と指摘・グループ単位のコメント欄を追加。「フィードバックを生成」で採用された指摘 + 追加コメントを元の作業エージェントに渡す markdown に整形し、「クリップボードにコピー」でそのままセッションへ貼れる導線を用意（状態は localStorage 永続）。markdown 冒頭には忖度なしの精査を求める定型依頼文を含む
@@ -52,7 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/kaionn/draftsmith/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/kaionn/draftsmith/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/kaionn/draftsmith/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/kaionn/draftsmith/releases/tag/v1.0.0
