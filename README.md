@@ -102,6 +102,18 @@ folded into the commit itself by `/plan-commit` — one-line subject plus the pl
 commit body, previewed and human-approved — which then deletes the file. Design intent
 ends up in git history instead of a stale document.
 
+```
+/verify-report               # E2E verification report with screenshot evidence
+```
+
+`/verify-report` closes the loop for UI-touching changes: the main session drives the
+browser and captures screenshots per acceptance criterion (sourced from the plan file),
+then an **evidence-reviewer** agent — which never sees the implementation diff — judges
+each criterion from the screenshots alone: pass / fail / needs-human, with the burden of
+proof on the evidence (no screenshot, no pass). The output is a single self-contained
+HTML report: criteria × embedded screenshots × verdicts, plus a copy-paste summary for
+the PR description. Full verdict coverage is machine-verified by the build script.
+
 - **Autonomous mode (default)**: no human gates between requirement and "no findings".
   Open questions are settled with conservative assumptions (preserve behavior, minimize
   scope) and every such decision is listed in a "Decisions made by AI" section of the
@@ -259,6 +271,18 @@ git の状態には一切触れない。
 畳み込む — subject 一行 + body に plan 本文、プレビューを人間が承認してからコミットし、
 plan ファイルを削除する。設計意図は陳腐化するドキュメントではなく git 履歴に残る。
 
+```
+/verify-report               # 証跡スクショ付き E2E 検証レポート
+```
+
+`/verify-report` は画面に触れる変更のループを閉じる: main がブラウザを操作して
+受け入れ基準（plan ファイル由来）ごとに証跡スクショを収集し、**実装 diff を一切
+見ていない evidence-reviewer** agent がスクショだけを目視して pass / fail /
+要人間確認を判定する — 立証責任は証跡側にあり、スクショが無い AC は pass に
+ならない。出力は AC × 埋め込みスクショ × 判定の自己完結 HTML レポートで、
+PR description への転記用サマリー（コピーボタン付き）を含む。全 AC の判定被覆は
+ビルドスクリプトが機械検証する。
+
 - **自律モード（既定）**: 要件入力から「指摘なし」まで人間ゲートなしで自走する。
   未決事項は保守的仮定（既存挙動維持・スコープ最小）で確定し、下した判断はすべて
   完了報告の「AI が下した判断」節に一覧で出る。逃げ道を一つだけ持つ:
@@ -302,12 +326,16 @@ agents/consultant.md            # 覆し判断の独立第二意見（読み取�
 agents/implementer.md           # 逐語適用（設計判断なし）
 agents/reviewer-light.md        # 軽量レビュー（定型出力）
 agents/diff-analyzer.md         # 差分の意味グルーピング（読み取り専用）
+agents/evidence-reviewer.md     # 証跡スクショの独立判定（読み取り専用・vision）
 skills/draftsmith/SKILL.md      # メインフロー（7 ステップ）
 skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR・plan ファイル
 skills/diff-review/SKILL.md     # 解説つき差分レビュー画面（/diff-review）
 skills/diff-review/scripts/     # diff 分割・HTML ビルド（Python stdlib のみ）
 skills/diff-review/templates/   # レビュー画面テンプレート
 skills/plan-commit/SKILL.md     # plan ファイルの畳み込みコミット（/plan-commit）
+skills/verify-report/SKILL.md   # 証跡スクショ付き E2E 検証レポート（/verify-report）
+skills/verify-report/scripts/   # レポートビルド（Python stdlib のみ）
+skills/verify-report/templates/ # レポートテンプレート
 ```
 
 ## License

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- /verify-report スキル: 実装後の E2E 検証を証跡スクリーンショット付きの自己完結 HTML レポートにする。plan ファイル（または指定シナリオ）の受け入れ基準ごとに main がブラウザ操作でスクショを収集し、実装 diff を知らない evidence-reviewer が fresh context でスクショだけを目視して pass / fail / needs_human を判定する（自己追認の排除）。レポートはスクショを data URI で埋め込んだ単一 HTML で、AC × 証跡 × 判定の対応表と PR 転記用サマリー（markdown 生成 + クリップボードコピー）を含む。全 AC の判定被覆はビルドスクリプトが機械検証する
+- evidence-reviewer エージェント（sonnet / read-only / vision）: AC 一覧と証跡スクショだけを受け取り、写っている事実を根拠に判定する。証跡が無い・読み取れない AC は needs_human に倒し、雰囲気 pass を許さない。AC 外で気づいた異常は extra_findings として報告する
+
 ### Fixed
 
 - `scripts/release.sh` の CHANGELOG 編集を `sed` から `perl -i -pe` に置き換え、BSD/GNU 非互換（`sed -i` の引数の有無・`i\` 行挿入構文）を解消した。macOS ローカルと Linux runner の双方で同じ結果になる

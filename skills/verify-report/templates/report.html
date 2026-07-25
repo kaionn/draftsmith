@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E2E verification report</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #dfe3e8;
+    --text: #1c2126;
+    --text-muted: #6b7280;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    --pass: #2f9e44;
+    --fail: #d6336c;
+    --needs: #d9822b;
+    --accent: #2563eb;
+    --header-h: 64px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --panel: #1d2125;
+      --border: #33383e;
+      --text: #e6e8ea;
+      --text-muted: #9aa3ad;
+      --accent: #4c8dff;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    z-index: 10;
+    gap: 16px;
+  }
+
+  .header-left { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+
+  .brand {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .report-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-chips { display: flex; gap: 8px; flex-shrink: 0; }
+
+  .chip {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .chip.hot-pass { color: var(--pass); border-color: var(--pass); }
+  .chip.hot-fail { color: var(--fail); border-color: var(--fail); }
+  .chip.hot-needs { color: var(--needs); border-color: var(--needs); }
+
+  main {
+    padding: calc(var(--header-h) + 20px) 16px 60px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .section-heading {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    margin: 32px 0 12px;
+  }
+
+  .section:first-of-type .section-heading { margin-top: 0; }
+
+  .source-note {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    margin: 0 0 16px;
+  }
+
+  .ac-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+
+  .ac-card.v-pass { border-left-color: var(--pass); }
+  .ac-card.v-fail { border-left-color: var(--fail); }
+  .ac-card.v-needs_human { border-left-color: var(--needs); }
+
+  .ac-head { display: flex; align-items: flex-start; gap: 10px; }
+
+  .verdict-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 10px;
+    border: 1px solid;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .verdict-badge.v-pass { color: var(--pass); border-color: var(--pass); }
+  .verdict-badge.v-fail { color: var(--fail); border-color: var(--fail); }
+  .verdict-badge.v-needs_human { color: var(--needs); border-color: var(--needs); }
+
+  .ac-id { font-family: var(--mono); font-size: 12px; color: var(--text-muted); flex-shrink: 0; padding-top: 3px; }
+
+  .ac-text { font-size: 14px; font-weight: 600; margin: 0; flex: 1; min-width: 0; line-height: 1.5; }
+
+  .ac-observation {
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 10px 0 0;
+  }
+
+  .ac-observation strong { color: var(--text-muted); font-weight: 600; }
+
+  .shot-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .shot {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg);
+    max-width: 100%;
+    flex: 1 1 280px;
+  }
+
+  .shot img { display: block; width: 100%; height: auto; }
+
+  .shot-caption {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    padding: 6px 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .shot-caption .shot-id { font-family: var(--mono); }
+
+  .plain-list { list-style: none; padding: 0; margin: 0; }
+
+  .plain-list li {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .plain-list .meta { color: var(--text-muted); font-size: 12px; }
+
+  .fb-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+
+  .fb-btn {
+    font-size: 12.5px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .fb-btn:hover { border-color: var(--text-muted); }
+
+  .fb-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .fb-btn-primary:hover { opacity: 0.9; }
+
+  #summary-output {
+    width: 100%;
+    min-height: 180px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.6;
+    resize: vertical;
+    display: none;
+    white-space: pre;
+    overflow-x: auto;
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-left">
+    <span class="brand">E2E REPORT</span>
+    <h1 class="report-title" id="report-title"></h1>
+  </div>
+  <div class="header-chips">
+    <span class="chip" id="chip-pass">pass 0</span>
+    <span class="chip" id="chip-fail">fail 0</span>
+    <span class="chip" id="chip-needs">要確認 0</span>
+  </div>
+</header>
+
+<main>
+  <section class="section" id="section-acs">
+    <h2 class="section-heading">01 / 受け入れ基準ごとの判定と証跡</h2>
+    <p class="source-note" id="source-note"></p>
+    <div id="ac-cards"></div>
+  </section>
+
+  <section class="section" id="section-extra">
+    <h2 class="section-heading">02 / AC 外の所見</h2>
+    <ul class="plain-list" id="extra-list"></ul>
+  </section>
+
+  <section class="section" id="section-excluded">
+    <h2 class="section-heading">03 / 対象外の AC</h2>
+    <ul class="plain-list" id="excluded-list"></ul>
+  </section>
+
+  <section class="section" id="section-summary">
+    <h2 class="section-heading">04 / PR 転記用サマリー</h2>
+    <div class="fb-actions">
+      <button type="button" class="fb-btn fb-btn-primary" id="summary-generate">サマリーを生成</button>
+      <button type="button" class="fb-btn" id="summary-copy">クリップボードにコピー</button>
+    </div>
+    <textarea id="summary-output" readonly spellcheck="false"></textarea>
+  </section>
+</main>
+
+<script id="report-data" type="application/json">__REPORT_DATA_JSON__</script>
+<script>
+(function () {
+  "use strict";
+
+  var VERDICT_LABEL = { pass: "PASS", fail: "FAIL", needs_human: "要人間確認" };
+  var VERDICT_MD = { pass: "✅ pass", fail: "❌ fail", needs_human: "⚠ 要確認" };
+
+  var data = JSON.parse(document.getElementById("report-data").textContent);
+  var shots = data.screenshots;
+
+  function renderHeader() {
+    document.getElementById("report-title").textContent = data.title || "";
+    var counts = { pass: 0, fail: 0, needs_human: 0 };
+    data.acs.forEach(function (a) { counts[a.verdict] += 1; });
+    var chipPass = document.getElementById("chip-pass");
+    var chipFail = document.getElementById("chip-fail");
+    var chipNeeds = document.getElementById("chip-needs");
+    chipPass.textContent = "pass " + counts.pass;
+    chipFail.textContent = "fail " + counts.fail;
+    chipNeeds.textContent = "要確認 " + counts.needs_human;
+    chipPass.classList.toggle("hot-pass", counts.pass > 0);
+    chipFail.classList.toggle("hot-fail", counts.fail > 0);
+    chipNeeds.classList.toggle("hot-needs", counts.needs_human > 0);
+  }
+
+  function renderShot(sid) {
+    var s = shots[sid];
+    if (!s) return null;
+    var fig = document.createElement("figure");
+    fig.className = "shot";
+    fig.style.margin = "0";
+    var img = document.createElement("img");
+    img.src = s.src;
+    img.alt = sid + " " + (s.caption || "");
+    img.loading = "lazy";
+    fig.appendChild(img);
+    var cap = document.createElement("figcaption");
+    cap.className = "shot-caption";
+    var idSpan = document.createElement("span");
+    idSpan.className = "shot-id";
+    idSpan.textContent = sid + " ";
+    cap.appendChild(idSpan);
+    cap.appendChild(document.createTextNode(s.caption || ""));
+    fig.appendChild(cap);
+    return fig;
+  }
+
+  function renderAcs() {
+    var container = document.getElementById("ac-cards");
+    document.getElementById("source-note").textContent = data.source ? ("source: " + data.source) : "";
+    data.acs.forEach(function (a) {
+      var card = document.createElement("article");
+      card.className = "ac-card v-" + a.verdict;
+
+      var head = document.createElement("div");
+      head.className = "ac-head";
+
+      var badge = document.createElement("span");
+      badge.className = "verdict-badge v-" + a.verdict;
+      badge.textContent = VERDICT_LABEL[a.verdict] || a.verdict;
+      head.appendChild(badge);
+
+      var idEl = document.createElement("span");
+      idEl.className = "ac-id";
+      idEl.textContent = a.id;
+      head.appendChild(idEl);
+
+      var textEl = document.createElement("p");
+      textEl.className = "ac-text";
+      textEl.textContent = a.text;
+      head.appendChild(textEl);
+
+      card.appendChild(head);
+
+      if (a.observation) {
+        var obs = document.createElement("p");
+        obs.className = "ac-observation";
+        var label = document.createElement("strong");
+        label.textContent = "所見: ";
+        obs.appendChild(label);
+        obs.appendChild(document.createTextNode(a.observation));
+        card.appendChild(obs);
+      }
+
+      if (a.evidence.length > 0) {
+        var grid = document.createElement("div");
+        grid.className = "shot-grid";
+        a.evidence.forEach(function (sid) {
+          var fig = renderShot(sid);
+          if (fig) grid.appendChild(fig);
+        });
+        card.appendChild(grid);
+      }
+
+      container.appendChild(card);
+    });
+  }
+
+  function renderExtra() {
+    var section = document.getElementById("section-extra");
+    var list = document.getElementById("extra-list");
+    if (!data.extra_findings.length) { section.style.display = "none"; return; }
+    data.extra_findings.forEach(function (e) {
+      var li = document.createElement("li");
+      li.appendChild(document.createTextNode(e.text));
+      if (e.evidence.length > 0) {
+        var grid = document.createElement("div");
+        grid.className = "shot-grid";
+        e.evidence.forEach(function (sid) {
+          var fig = renderShot(sid);
+          if (fig) grid.appendChild(fig);
+        });
+        li.appendChild(grid);
+      }
+      list.appendChild(li);
+    });
+  }
+
+  function renderExcluded() {
+    var section = document.getElementById("section-excluded");
+    var list = document.getElementById("excluded-list");
+    if (!data.excluded_acs.length) { section.style.display = "none"; return; }
+    data.excluded_acs.forEach(function (e) {
+      var li = document.createElement("li");
+      var title = document.createElement("div");
+      title.textContent = e.id + ": " + e.text;
+      li.appendChild(title);
+      var meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = "対象外の理由: " + e.reason;
+      li.appendChild(meta);
+      list.appendChild(li);
+    });
+  }
+
+  function generateSummary() {
+    var lines = [];
+    lines.push("## E2E 検証レポート（" + (data.title || "") + "）");
+    lines.push("");
+    lines.push("| AC | 判定 | 所見 |");
+    lines.push("|---|---|---|");
+    data.acs.forEach(function (a) {
+      var obs = (a.observation || "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+      lines.push("| " + a.id + " " + a.text.replace(/\|/g, "\\|") + " | " + VERDICT_MD[a.verdict] + " | " + obs + " |");
+    });
+    if (data.excluded_acs.length) {
+      lines.push("");
+      data.excluded_acs.forEach(function (e) {
+        lines.push("- 対象外: " + e.id + "（" + e.reason + "）");
+      });
+    }
+    if (data.extra_findings.length) {
+      lines.push("");
+      lines.push("AC 外の所見:");
+      data.extra_findings.forEach(function (e) {
+        lines.push("- " + e.text.replace(/\r?\n/g, " "));
+      });
+    }
+    var shotCount = Object.keys(shots).length;
+    lines.push("");
+    lines.push("証跡スクリーンショット " + shotCount + " 枚はローカルの report.html を参照。");
+    return lines.join("\n") + "\n";
+  }
+
+  function showSummary() {
+    var out = document.getElementById("summary-output");
+    out.value = generateSummary();
+    out.style.display = "block";
+    return out;
+  }
+
+  function initActions() {
+    document.getElementById("summary-generate").addEventListener("click", showSummary);
+    document.getElementById("summary-copy").addEventListener("click", function () {
+      var btn = this;
+      var out = showSummary();
+      var done = function () {
+        var original = "クリップボードにコピー";
+        btn.textContent = "コピーしました ✓";
+        btn.disabled = true;
+        window.setTimeout(function () { btn.textContent = original; btn.disabled = false; }, 1500);
+      };
+      var fallback = function () {
+        out.focus();
+        out.select();
+        try { document.execCommand("copy"); } catch (e) { /* 手動コピーに任せる */ }
+        done();
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(out.value).then(done, fallback);
+      } else {
+        fallback();
+      }
+    });
+  }
+
+  renderHeader();
+  renderAcs();
+  renderExtra();
+  renderExcluded();
+  initActions();
+})();
+</script>
+</body>
+</html>

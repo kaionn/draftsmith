@@ -7,9 +7,11 @@
 - `skills/draftsmith/SKILL.md` — メインスキル（full / light 2 レーン）
 - `skills/diff-review/SKILL.md` — 解説つき差分レビュー画面の生成（/diff-review）
 - `skills/plan-commit/SKILL.md` — plan ファイルの畳み込みコミット（/plan-commit）
-- `agents/` — designer / auditor / consultant / implementer / reviewer-light / diff-analyzer
+- `skills/verify-report/SKILL.md` — 証跡スクショ付き E2E 検証レポート（/verify-report）
+- `agents/` — designer / auditor / consultant / implementer / reviewer-light / diff-analyzer / evidence-reviewer
 - `skills/draftsmith/templates/` — 要件書・出力契約・mini-ADR・plan ファイルのテンプレート
 - `skills/diff-review/scripts/` + `templates/` — diff 分割・HTML ビルド（Python stdlib のみ）とレビュー画面テンプレート
+- `skills/verify-report/scripts/` + `templates/` — 証跡埋め込みレポートのビルド（Python stdlib のみ）とテンプレート
 - `.claude-plugin/plugin.json` — プラグインメタデータ（バージョンの SSOT）
 - `.claude-plugin/marketplace.json` — self-marketplace 定義
 - `scripts/release.sh` — バージョン bump + CHANGELOG 昇格 + commit
