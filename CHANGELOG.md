@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `scripts/release.sh` の CHANGELOG 編集を `sed` から `perl -i -pe` に置き換え、BSD/GNU 非互換（`sed -i` の引数の有無・`i\` 行挿入構文）を解消した。macOS ローカルと Linux runner の双方で同じ結果になる
+- 比較リンク生成の repo URL ハードコードを除去し、既存の `[Unreleased]:` 行からキャプチャして使うようにした（リンク更新と新バージョン行の挿入も 1 パスに統合）
+
 ## [1.5.0] - 2026-07-25
 
 ### Added

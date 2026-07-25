@@ -53,19 +53,15 @@ jq --arg v "$NEW_VERSION" '
   && mv "$MARKETPLACE_JSON.tmp" "$MARKETPLACE_JSON"
 
 # 3. CHANGELOG.md — [Unreleased] の直後に新バージョンのヘッダーを挿入
+# in-place 編集は sed ではなく perl を使う（sed の -i と行挿入構文はどちらも BSD/GNU 非互換で、
+# macOS ローカルと Linux runner の双方で動かせない）
 TODAY=$(date +%Y-%m-%d)
-sed -i '' "s/^## \[Unreleased\]$/## [Unreleased]\n\n## [$NEW_VERSION] - $TODAY/" "$CHANGELOG"
+perl -i -pe "s{^## \[Unreleased\]\$}{## [Unreleased]\n\n## [${NEW_VERSION}] - ${TODAY}}" "$CHANGELOG"
 
-# 比較リンクを更新
-sed -i '' "s|\[Unreleased\]: \(.*\)/compare/v.*\.\.\.HEAD|[Unreleased]: \1/compare/v${NEW_VERSION}...HEAD|" "$CHANGELOG"
-
-# 新バージョンのリンクを追加（既存の最新バージョンリンクの直前）
-PREV_TAG="v${CURRENT_VERSION}"
-NEW_LINK="[${NEW_VERSION}]: https://github.com/kaionn/draftsmith/compare/${PREV_TAG}...v${NEW_VERSION}"
-# 旧バージョンのリンク行の直前に挿入
-sed -i '' "/^\[${CURRENT_VERSION}\]:/i\\
-${NEW_LINK}
-" "$CHANGELOG"
+# 比較リンク: [Unreleased] を新バージョン起点に更新し、その直後へ新バージョンのリンクを差し込む。
+# リンクは降順に並ぶため [Unreleased] の直後が新バージョンの正しい位置になる。
+# repo URL は既存行からキャプチャして使う（ハードコードしない）。
+perl -i -pe "s{^\[Unreleased\]: (.+)/compare/v.+\.\.\.HEAD\$}{[Unreleased]: \$1/compare/v${NEW_VERSION}...HEAD\n[${NEW_VERSION}]: \$1/compare/v${CURRENT_VERSION}...v${NEW_VERSION}}" "$CHANGELOG"
 
 echo "Updated: plugin.json, marketplace.json, CHANGELOG.md"
 
