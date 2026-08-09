@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-08-09
+
 ### Changed
 
 - `draftsmith-next` を `skills/adapters/` 配下へ移設し、タスク供給元ごとのアダプタ層を分離した。`plugin.json` の `skills` に `./skills/adapters/` を追加して discovery を維持しており、スキルの呼び出し名 `draftsmith-next` は変わらない
@@ -114,7 +116,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/kaionn/draftsmith/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/kaionn/draftsmith/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/kaionn/draftsmith/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/kaionn/draftsmith/compare/v1.5.0...v1.6.0
