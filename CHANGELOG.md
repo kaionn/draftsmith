@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-08-09
+
 ### Added
 
 - draftsmith-next スキル: claude-code-harness の Plans.md から未着手タスクを 1 件選んで draftsmith へ橋渡しするグルースキルを追加。Plans.md は読み取りのみで、cc: マーカーの更新は harness-sync の領分として持たない
@@ -108,7 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/kaionn/draftsmith/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/kaionn/draftsmith/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/kaionn/draftsmith/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/kaionn/draftsmith/compare/v1.4.0...v1.5.0
