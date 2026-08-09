@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Step 1 / Step L2: 対象リポジトリの実装規範ドキュメント（AI_CONTEXT.md、CLAUDE.md の実装ルール等）を確認し、拘束となる規範を要件書の「5. 非機能要件」（light は brief）へ転記する手順を追加。designer / implementer が要件書と brief しか読まない前提を規範面でも成立させる
+- Step 6: reviewer-light ループに「発見と検証の分離」を導入。2 巡目以降の再レビューは「前回指摘の解消確認 + 修正差分の新規問題」に範囲を限定し、停止条件に「3 巡しても収束しない場合は人間へ」を追加（全差分の発見レビューを繰り返すと原理的に収束しない実測知見の吸収）
+
 ## [1.7.0] - 2026-07-25
 
 ### Added
