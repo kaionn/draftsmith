@@ -18,6 +18,7 @@
     "code-design"
   ],
   "skills": [
-    "./skills/"
+    "./skills/",
+    "./skills/adapters/"
   ]
 }

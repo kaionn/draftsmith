@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `draftsmith-next` を `skills/adapters/` 配下へ移設し、タスク供給元ごとのアダプタ層を分離した。`plugin.json` の `skills` に `./skills/adapters/` を追加して discovery を維持しており、スキルの呼び出し名 `draftsmith-next` は変わらない
+
 ## [1.8.0] - 2026-08-09
 
 ### Added
