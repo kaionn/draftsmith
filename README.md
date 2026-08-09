@@ -336,6 +336,7 @@ skills/plan-commit/SKILL.md     # plan ファイルの畳み込みコミット�
 skills/verify-report/SKILL.md   # 証跡スクショ付き E2E 検証レポート（/verify-report）
 skills/verify-report/scripts/   # レポートビルド（Python stdlib のみ）
 skills/verify-report/templates/ # レポートテンプレート
+skills/draftsmith-next/SKILL.md # harness の Plans.md から 1 タスクを draftsmith へ橋渡し（/draftsmith-next）
 ```
 
 ## License

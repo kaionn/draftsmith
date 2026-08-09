@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- draftsmith-next スキル: claude-code-harness の Plans.md から未着手タスクを 1 件選んで draftsmith へ橋渡しするグルースキルを追加。Plans.md は読み取りのみで、cc: マーカーの更新は harness-sync の領分として持たない
+
 ### Changed
 
 - Step 1 / Step L2: 対象リポジトリの実装規範ドキュメント（AI_CONTEXT.md、CLAUDE.md の実装ルール等）を確認し、拘束となる規範を要件書の「5. 非機能要件」（light は brief）へ転記する手順を追加。designer / implementer が要件書と brief しか読まない前提を規範面でも成立させる

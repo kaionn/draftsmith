@@ -8,6 +8,7 @@
 - `skills/diff-review/SKILL.md` — 解説つき差分レビュー画面の生成（/diff-review）
 - `skills/plan-commit/SKILL.md` — plan ファイルの畳み込みコミット（/plan-commit）
 - `skills/verify-report/SKILL.md` — 証跡スクショ付き E2E 検証レポート（/verify-report）
+- `skills/draftsmith-next/SKILL.md` — harness の Plans.md から 1 タスクを draftsmith へ橋渡し（/draftsmith-next）
 - `agents/` — designer / auditor / consultant / implementer / reviewer-light / diff-analyzer / evidence-reviewer
 - `skills/draftsmith/templates/` — 要件書・出力契約・mini-ADR・plan ファイルのテンプレート
 - `skills/diff-review/scripts/` + `templates/` — diff 分割・HTML ビルド（Python stdlib のみ）とレビュー画面テンプレート
