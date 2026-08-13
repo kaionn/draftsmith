@@ -197,7 +197,12 @@ designer の確認事項リスト（推奨デフォルト付き）を処理す�
   どの選択肢も保守的観点で選べない項目（すべてがスコープ拡大・挙動変更・不可逆の
   いずれかを伴う等）は、Step 1 と同じ例外として AskUserQuestion でその項目だけを
   人間に確定してもらう
-- gated モード: AskUserQuestion でユーザーに確定してもらう
+- gated モード: `skills/draftsmith/templates/brief-visual.md` に従い designer の return
+  （出力契約 5 要素）を `/tmp/draftsmith-brief-{task-slug}.html` へ描画し、`open` で
+  実際に開いて 5 部構成が崩れなく描画されているか目視確認する（fablize grounding。
+  静的な生成だけで完了とみなさない。崩れがあれば直して再描画する）。
+  確認できたらパスを添えて AskUserQuestion でユーザーに確定してもらう
+  （自律モードではこの HTML 生成をしない。トークン節約のため）
 
 確認事項の確定が済んだら（= 設計確定）、`templates/plan-file.md` の形式で
 `plans/{task-slug}.md` を書き出す（Status: designed。「plan ファイル」節参照。
