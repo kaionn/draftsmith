@@ -87,6 +87,17 @@ gated モードはどちらのレーンとも組み合わせられる（light �
   ある）と判断した場合は、例外的に AskUserQuestion でその 1 点だけを人間に確定してもらう。
   埋めきれるのに念のため聞くのは自律モードの放棄なので、この例外は稀運用に留める
 
+#### rubric の書き出し
+
+要件確定後、受け入れ基準（AC-n）を `templates/rubric.md` の形式で
+`~/.local/state/draftsmith/rubrics/{repo}-{task-slug}.md` へ書き出す。
+task-slug は要件からケバブケースで導出する。
+
+書き出し前にパスを検証する: repo・task-slug は英数字・`.`・`_`・`-` のみを許可し、
+空文字・`.`・`..`・パス区切り文字・絶対パスを拒否する。解決したパスが
+`~/.local/state/draftsmith/rubrics/` 配下に収まることを確認してから書く
+（verify-harness のトラバーサル対策を踏襲）。
+
 ### Step 2: designer 起動（宣言止まり禁止）
 
 designer agent をバックグラウンドで起動する。要件書は**全文を逐語で**プロンプトに含める
@@ -155,6 +166,27 @@ consultant 諮問を必須とする（同節）。
 やり直すことになり、設計を独立させた意味が消える）。軽微か重大かの判定に迷ったら、
 consultant に諮問してから決める。
 
+#### 監査 pain 台帳への記録
+
+差し戻し・却下が発生するたびに、発生源に応じたカテゴリで
+`scripts/audit-ledger.sh record <category> "<1行理由>" <repo>` を呼ぶ。
+理由は 1 行要約にとどめ、顧客情報・社内限定情報を含めない（詳細を書きたい場合も
+要約に留め、対象コードの内容そのものを転記しない）。repo はこのリポジトリ名を渡す。
+
+category は以下の enum から選ぶ（fingerprint 安定化のため自由記述は禁止）:
+
+| category | 対応する差し戻し・却下 |
+|---|---|
+| `traceability-miss` | Step 3 層 1（トレーサビリティ機械照合）での差し戻し |
+| `adr-unjustified` | Step 3 層 2（ADR スポットチェック）で根拠が曖昧なまま差し戻す場合 |
+| `prediction-divergence` | Step 3 層 3（予測乖離検査）で乖離の説明がつかない場合 |
+| `anchor-mismatch` | Step 5 / Step L3 中央検証で、原因が designer の調査漏れ・brief 側の不備によるアンカー不一致だった場合 |
+| `scope-creep` | Step 4 確認事項確定・Step 6 / L4 reviewer-light ループで、スコープ外（NG リスト）への踏み込みを理由に却下する場合 |
+| `requirement-misread` | Step 3 で designer の前提崩れ報告（出力契約 要素 3）を受け、要件の読み違いが原因で要件書を修正する場合 |
+
+各タスクの実行末尾（Step 7 / Step L5 の完了報告の直前）で、却下の有無によらず一度だけ
+`scripts/audit-ledger.sh promote-check` を呼ぶ。
+
 ### Step 4: 確認事項の確定
 
 designer の確認事項リスト（推奨デフォルト付き）を処理する:
@@ -165,7 +197,12 @@ designer の確認事項リスト（推奨デフォルト付き）を処理す�
   どの選択肢も保守的観点で選べない項目（すべてがスコープ拡大・挙動変更・不可逆の
   いずれかを伴う等）は、Step 1 と同じ例外として AskUserQuestion でその項目だけを
   人間に確定してもらう
-- gated モード: AskUserQuestion でユーザーに確定してもらう
+- gated モード: `skills/draftsmith/templates/brief-visual.md` に従い designer の return
+  （出力契約 5 要素）を `/tmp/draftsmith-brief-{task-slug}.html` へ描画し、`open` で
+  実際に開いて 5 部構成が崩れなく描画されているか目視確認する（fablize grounding。
+  静的な生成だけで完了とみなさない。崩れがあれば直して再描画する）。
+  確認できたらパスを添えて AskUserQuestion でユーザーに確定してもらう
+  （自律モードではこの HTML 生成をしない。トークン節約のため）
 
 確認事項の確定が済んだら（= 設計確定）、`templates/plan-file.md` の形式で
 `plans/{task-slug}.md` を書き出す（Status: designed。「plan ファイル」節参照。
@@ -180,7 +217,9 @@ designer の確認事項リスト（推奨デフォルト付き）を処理す�
 1. スキップ報告の確認。アンカー不一致があれば原因（designer の調査漏れ / ファイル変更）を
    特定し、brief を修正して implementer に再依頼する
 2. プロジェクトの format / lint / test コマンドを検出（CLAUDE.md・package.json・
-   Makefile・mise.toml 等から）して実行する
+   Makefile・mise.toml 等から）して実行する。rubric ファイルが存在する場合は、
+   各 criterion の検証方法列に書かれたコマンド・観察手順も合わせて実行し、
+   rubric ファイルの判定列を実測結果（PASS / FAIL）で更新する
 3. `git diff` で変更全体を自分の目でレビューする（brief との一致・意図しない変更の混入）
 
 中央検証の結果や implementer の成果物を designer に戻してレビューさせない
@@ -205,7 +244,9 @@ designer の確認事項リスト（推奨デフォルト付き）を処理す�
 
 ### Step 7: 完了報告
 
-plan ファイルを書き出している場合は、先に更新する: Status を `implemented` に変え、
+報告の前に `scripts/audit-ledger.sh promote-check` を一度だけ呼ぶ。
+
+plan ファイルを書き出している場合は、続けて更新する: Status を `implemented` に変え、
 「AI が下した判断」節に下記 2 の内容を転記する（コミット履歴に判断記録ごと
 畳み込まれるようにするため）。
 
@@ -239,6 +280,10 @@ designer を起動せず、main が brief を直接書く軽量経路。brief �
 - gated モード: ここで AskUserQuestion により要件をユーザーに確定してもらう
 - 自律モード: そのまま進む
 
+#### rubric の書き出し
+
+full レーン Step 1 と同じ手順・同じ書き出し先（`~/.local/state/draftsmith/rubrics/{repo}-{task-slug}.md`、パス検証込み）で、AC-n を rubric として書き出す。
+
 ### Step L2: main が brief を直接作成
 
 `templates/reply-contract.md` の要素 1（逐語 brief）と同じ形式で、アンカー付きの変更指示を
@@ -255,7 +300,8 @@ mini-ADR 節は「なし（方針一意のため light レーンで実施）」�
 ### Step L3: implementer 起動 → 中央検証
 
 full の Step 5 と同一に行う（バックグラウンド起動・スキップ報告の確認・
-format / lint / test の検出と実行・`git diff` の目視レビュー）。加えて L1 の予測と
+format / lint / test の検出と実行・rubric ファイルがあれば検証コマンドの実行と
+判定列の更新・`git diff` の目視レビュー）。加えて L1 の予測と
 diff を突き合わせ、乖離があれば説明がつくまで調べる。
 
 ### Step L4: reviewer-light 1 巡
@@ -269,6 +315,8 @@ reviewer-light を 1 回だけかける（full のような「指摘なし」ま
 - 却下した指摘は理由付きで記録する（覆し明文化はレビューにも適用）
 
 ### Step L5: 完了報告
+
+報告の前に `scripts/audit-ledger.sh promote-check` を一度だけ呼ぶ。
 
 full の Step 7 と同じ構成（変更サマリー / AI が下した判断 / 検証結果 / 残課題・懸念）で
 報告し、commit / push はせずに終える。「AI が下した判断」の先頭にレーン判定の理由を書く。

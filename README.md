@@ -6,14 +6,15 @@ One task in, reviewed change out: **requirements → design → audit → implem
 
 ```mermaid
 flowchart LR
-    R[Requirements<br/>要件正規化] --> D[designer<br/>opus / read-only]
+    R[Requirements<br/>要件正規化] --> D[designer<br/>opus / read-only<br/>reads constitution.md]
     D --> AU[auditor<br/>独立監査 / read-only]
     D --> A{Audit<br/>形式 3 層 + 指摘統合}
     AU --> A
-    A -- 差し戻し --> D
-    A --> I[implementer<br/>sonnet / verbatim]
+    A -- 差し戻し<br/>record to pain ledger --> D
+    A --> G[gated: render brief<br/>as HTML, open & confirm]
+    G --> I[implementer<br/>sonnet / verbatim]
     I --> V[Central verification<br/>format / lint / test]
-    V --> L{reviewer-light}
+    V --> L{reviewer-light<br/>checks rubric}
     L -- 指摘あり --> I
     L -- 指摘なし --> F[Report<br/>完了報告<br/>no commit / no push]
 ```
@@ -37,6 +38,9 @@ splits the loop into three roles with **structurally enforced boundaries**:
   (1) traceability against every acceptance criterion, (2) that ADRs actually cite the
   requirements, (3) divergence between prediction and result — a cheap tripwire against
   rubber-stamp auditing. Overruling the designer requires a written reason and alternative.
+  Every rejection is recorded to a per-category **pain ledger**; once a category hits 3
+  rejections it auto-promotes into `constitution.md`, which designer reads on every future
+  run — recurring audit friction becomes a standing constraint instead of repeating itself.
 - **auditor** (opus, read-only) — a fresh-context semantic audit of the designer's brief,
   run in the full lane by default (`--no-audit` to skip). The main session's 3-layer audit
   is formal; the auditor checks *meaning* across six lenses (seams, bug seeds, conventions,
@@ -52,6 +56,9 @@ splits the loop into three roles with **structurally enforced boundaries**:
 - **reviewer-light** (sonnet, read-only) — loops until "no findings" across seven generic
   lenses (correctness, edge cases, semantic redundancy, readability, types, project
   conventions, tests), with an explicit out-of-scope list so it doesn't fight your linter.
+  When a **rubric** was written up front (criterion / verification method / expected
+  result per acceptance criterion), it checks that first — measured, not the implementer's
+  self-report — before the seven lenses.
 
 ### Install
 
@@ -121,6 +128,9 @@ the PR description. Full verdict coverage is machine-verified by the build scrip
   genuinely cannot settle triggers a single targeted human question instead of a guess —
   and if that keeps happening, draftsmith suggests rerunning with `--gated`.
 - **`--gated`**: adds two human checkpoints — requirement sign-off and design sign-off.
+  For the design checkpoint, the designer's 5-part reply is rendered as a self-contained
+  HTML page (`/tmp/draftsmith-brief-{task-slug}.html`) and opened in a browser before the
+  confirmation prompt, so you review a formatted brief instead of raw markdown in chat.
 - **`--fable`**: runs the designer on Fable (the tier above Opus) for this task. Fable is
   never used without explicit user permission — the flag, a go-ahead in conversation, or
   a one-time upgrade proposal draftsmith may make on clearly heavyweight tasks. The chosen
@@ -209,7 +219,10 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 - **main セッション** — 発注者兼監査者。dispatch 前に「反証可能な予測」を 2〜3 行書き、
   監査では (1) 全受け入れ基準とのトレーサビリティ照合 (2) ADR の要件引用チェック
   (3) 予測と成果物の乖離検査、の 3 層を回す。第 3 層は監査のゴム印化を検知する安価な
-  仕掛け。designer の提案を覆すときは理由 + 代替案の明文化が必須
+  仕掛け。designer の提案を覆すときは理由 + 代替案の明文化が必須。却下はカテゴリ別に
+  **pain 台帳**へ記録され、同一カテゴリが 3 回溜まると `constitution.md` へ自動昇格する。
+  designer は毎回の起動時にこれを読むので、繰り返す監査摩擦がその場限りで消えず
+  恒常的な制約として定着する
 - **auditor**（opus / read-only）— designer の brief をフレッシュコンテキストで意味的に
   監査する独立監査層。full レーンで既定実行（`--no-audit` で省略可）。main の 3 層は
   形式の検査なので、意味の検査（接合面・バグの芽・規約準拠・要件充足の中身・設計の
@@ -223,7 +236,9 @@ designer/implementer split plus an auditable reply contract, at single-task gran
   実ファイルと一致しなければ、推測で埋めずスキップ報告する
 - **reviewer-light**（sonnet / read-only）— 7 つの汎用観点（正確性・エッジケース・
   意味的冗長性・可読性・型・プロジェクト規約・テスト）で「指摘なし」までループする。
-  観点外リストを明示していて、linter の仕事は奪わない
+  観点外リストを明示していて、linter の仕事は奪わない。事前に **rubric**（受け入れ基準
+  ごとの criterion / 検証方法 / 期待結果）が書かれていれば、7 観点より先にそれを
+  自分で実測して照合する（実装者の自己申告ではなく rubric が正）
 
 ### インストール
 
@@ -288,7 +303,10 @@ PR description への転記用サマリー（コピーボタン付き）を含�
   完了報告の「AI が下した判断」節に一覧で出る。逃げ道を一つだけ持つ:
   保守的仮定で埋めきれない未決事項に限り、推測せずその 1 点だけを人間に確認する。
   これが頻発するタスクには `--gated` での仕切り直しを提案する
-- **`--gated`**: 要件確定・設計確定の 2 ゲートが人間確認になる
+- **`--gated`**: 要件確定・設計確定の 2 ゲートが人間確認になる。設計確定ゲートでは
+  designer の出力契約 5 要素を自己完結 HTML（`/tmp/draftsmith-brief-{task-slug}.html`）
+  として描画し、確認プロンプトの前にブラウザで開く。チャット上の生 markdown ではなく
+  整形された brief をレビューできる
 - **`--fable`**: designer を Fable（Opus 上位ティア）で起動する。Fable の使用には必ず
   ユーザー許可が要る — フラグ指定・会話での明示許可・重量級タスクでの 1 回だけの
   昇格提案への承認のいずれか。選択モデルは完了報告に記録される。対象は designer のみ
@@ -320,15 +338,16 @@ PR description への転記用サマリー（コピーボタン付き）を含�
 ```
 .claude-plugin/plugin.json      # プラグイン manifest
 .claude-plugin/marketplace.json # self-marketplace（単一リポで配布）
-agents/designer.md              # 一次設計（読み取り専用）
+agents/designer.md              # 一次設計（読み取り専用・constitution.md 読込）
 agents/auditor.md               # 独立設計監査（読み取り専用・full レーン既定）
 agents/consultant.md            # 覆し判断の独立第二意見（読み取り専用・on-demand）
 agents/implementer.md           # 逐語適用（設計判断なし）
-agents/reviewer-light.md        # 軽量レビュー（定型出力）
+agents/reviewer-light.md        # 軽量レビュー（定型出力・rubric 照合）
+scripts/audit-ledger.sh         # 監査 pain 台帳（record / promote-check）
 agents/diff-analyzer.md         # 差分の意味グルーピング（読み取り専用）
 agents/evidence-reviewer.md     # 証跡スクショの独立判定（読み取り専用・vision）
 skills/draftsmith/SKILL.md      # メインフロー（7 ステップ）
-skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR・plan ファイル
+skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR・plan ファイル・rubric・brief-visual
 skills/diff-review/SKILL.md     # 解説つき差分レビュー画面（/diff-review）
 skills/diff-review/scripts/     # diff 分割・HTML ビルド（Python stdlib のみ）
 skills/diff-review/templates/   # レビュー画面テンプレート
