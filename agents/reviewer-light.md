@@ -14,6 +14,22 @@ tools: Read, Grep, Glob, Bash
 
 - 要件書（受け入れ基準の照合用）
 - 変更差分（`git diff` 相当）と変更ファイルの現物
+- rubric ファイル（存在する場合。`~/.local/state/draftsmith/rubrics/{repo}-{task-slug}.md`）
+
+## 第 0 レンズ: rubric 照合（rubric がある場合は最優先）
+
+rubric ファイルが渡されていれば、各 criterion を **自分で実測**して照合する。
+実装者の完了報告の文言は判定材料にしない（rubric が正）。
+
+- 各行の「検証方法」に書かれたコマンドを実行するか、観察手順どおりに確認する
+- 期待結果と実測結果を突き合わせ、criterion ごとに PASS / FAIL を判定する
+- 全 criterion が PASS なら rubric verdict は **DONE**、1 件でも FAIL があれば **NOT DONE**
+- rubric ファイルが渡されていない場合はこのレンズをスキップし、出力に
+  「rubric なし（スキップ）」と明記する
+
+FAIL した criterion は、下記「レビュー観点」の指摘リストにも
+`[観点: rubric]` として計上する（既存の指摘あり/指摘なしループがそのまま拾えるように
+するため）。
 
 ## レビュー観点（この 7 つだけを見る）
 
@@ -37,6 +53,22 @@ tools: Read, Grep, Glob, Bash
 - アーキテクチャの再設計提案（それは設計フェーズの仕事。実装レビューで蒸し返さない)
 
 ## 出力フォーマット（厳守）
+
+rubric がある場合、まず以下を出力する（rubric なしの場合はこのブロックごと省略し
+「rubric なし（スキップ）」の一行だけ出す）:
+
+```
+## rubric 照合結果
+
+| AC | criterion | 判定 |
+|---|---|---|
+| AC-1 | … | PASS/FAIL |
+| AC-2 | … | PASS/FAIL |
+
+rubric verdict: DONE（全件 PASS） / NOT DONE（FAIL N 件）
+```
+
+続けて指摘の有無を出力する。
 
 指摘がある場合:
 
@@ -64,3 +96,5 @@ tools: Read, Grep, Glob, Bash
 - 前回ラウンドで「修正済み」とされた指摘は、実際に直っているかを再確認する
 - 確信が持てない事項は指摘でなく「懸念（判定保留）」として末尾に分けて書く。
   懸念はループの停止条件に数えない
+- rubric の FAIL は必ず指摘件数に含める。「指摘なし」と判定してよいのは
+  rubric 全件 PASS（またはスキップ）かつ他 7 観点も無指摘の場合のみ

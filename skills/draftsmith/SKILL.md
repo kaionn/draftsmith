@@ -87,6 +87,17 @@ gated モードはどちらのレーンとも組み合わせられる（light �
   ある）と判断した場合は、例外的に AskUserQuestion でその 1 点だけを人間に確定してもらう。
   埋めきれるのに念のため聞くのは自律モードの放棄なので、この例外は稀運用に留める
 
+#### rubric の書き出し
+
+要件確定後、受け入れ基準（AC-n）を `templates/rubric.md` の形式で
+`~/.local/state/draftsmith/rubrics/{repo}-{task-slug}.md` へ書き出す。
+task-slug は要件からケバブケースで導出する。
+
+書き出し前にパスを検証する: repo・task-slug は英数字・`.`・`_`・`-` のみを許可し、
+空文字・`.`・`..`・パス区切り文字・絶対パスを拒否する。解決したパスが
+`~/.local/state/draftsmith/rubrics/` 配下に収まることを確認してから書く
+（verify-harness のトラバーサル対策を踏襲）。
+
 ### Step 2: designer 起動（宣言止まり禁止）
 
 designer agent をバックグラウンドで起動する。要件書は**全文を逐語で**プロンプトに含める
@@ -180,7 +191,9 @@ designer の確認事項リスト（推奨デフォルト付き）を処理す�
 1. スキップ報告の確認。アンカー不一致があれば原因（designer の調査漏れ / ファイル変更）を
    特定し、brief を修正して implementer に再依頼する
 2. プロジェクトの format / lint / test コマンドを検出（CLAUDE.md・package.json・
-   Makefile・mise.toml 等から）して実行する
+   Makefile・mise.toml 等から）して実行する。rubric ファイルが存在する場合は、
+   各 criterion の検証方法列に書かれたコマンド・観察手順も合わせて実行し、
+   rubric ファイルの判定列を実測結果（PASS / FAIL）で更新する
 3. `git diff` で変更全体を自分の目でレビューする（brief との一致・意図しない変更の混入）
 
 中央検証の結果や implementer の成果物を designer に戻してレビューさせない
@@ -239,6 +252,10 @@ designer を起動せず、main が brief を直接書く軽量経路。brief �
 - gated モード: ここで AskUserQuestion により要件をユーザーに確定してもらう
 - 自律モード: そのまま進む
 
+#### rubric の書き出し
+
+full レーン Step 1 と同じ手順・同じ書き出し先（`~/.local/state/draftsmith/rubrics/{repo}-{task-slug}.md`、パス検証込み）で、AC-n を rubric として書き出す。
+
 ### Step L2: main が brief を直接作成
 
 `templates/reply-contract.md` の要素 1（逐語 brief）と同じ形式で、アンカー付きの変更指示を
@@ -255,7 +272,8 @@ mini-ADR 節は「なし（方針一意のため light レーンで実施）」�
 ### Step L3: implementer 起動 → 中央検証
 
 full の Step 5 と同一に行う（バックグラウンド起動・スキップ報告の確認・
-format / lint / test の検出と実行・`git diff` の目視レビュー）。加えて L1 の予測と
+format / lint / test の検出と実行・rubric ファイルがあれば検証コマンドの実行と
+判定列の更新・`git diff` の目視レビュー）。加えて L1 の予測と
 diff を突き合わせ、乖離があれば説明がつくまで調べる。
 
 ### Step L4: reviewer-light 1 巡
