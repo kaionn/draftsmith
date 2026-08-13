@@ -166,6 +166,27 @@ consultant 諮問を必須とする（同節）。
 やり直すことになり、設計を独立させた意味が消える）。軽微か重大かの判定に迷ったら、
 consultant に諮問してから決める。
 
+#### 監査 pain 台帳への記録
+
+差し戻し・却下が発生するたびに、発生源に応じたカテゴリで
+`scripts/audit-ledger.sh record <category> "<1行理由>" <repo>` を呼ぶ。
+理由は 1 行要約にとどめ、顧客情報・社内限定情報を含めない（詳細を書きたい場合も
+要約に留め、対象コードの内容そのものを転記しない）。repo はこのリポジトリ名を渡す。
+
+category は以下の enum から選ぶ（fingerprint 安定化のため自由記述は禁止）:
+
+| category | 対応する差し戻し・却下 |
+|---|---|
+| `traceability-miss` | Step 3 層 1（トレーサビリティ機械照合）での差し戻し |
+| `adr-unjustified` | Step 3 層 2（ADR スポットチェック）で根拠が曖昧なまま差し戻す場合 |
+| `prediction-divergence` | Step 3 層 3（予測乖離検査）で乖離の説明がつかない場合 |
+| `anchor-mismatch` | Step 5 / Step L3 中央検証で、原因が designer の調査漏れ・brief 側の不備によるアンカー不一致だった場合 |
+| `scope-creep` | Step 4 確認事項確定・Step 6 / L4 reviewer-light ループで、スコープ外（NG リスト）への踏み込みを理由に却下する場合 |
+| `requirement-misread` | Step 3 で designer の前提崩れ報告（出力契約 要素 3）を受け、要件の読み違いが原因で要件書を修正する場合 |
+
+各タスクの実行末尾（Step 7 / Step L5 の完了報告の直前）で、却下の有無によらず一度だけ
+`scripts/audit-ledger.sh promote-check` を呼ぶ。
+
 ### Step 4: 確認事項の確定
 
 designer の確認事項リスト（推奨デフォルト付き）を処理する:
@@ -218,7 +239,9 @@ designer の確認事項リスト（推奨デフォルト付き）を処理す�
 
 ### Step 7: 完了報告
 
-plan ファイルを書き出している場合は、先に更新する: Status を `implemented` に変え、
+報告の前に `scripts/audit-ledger.sh promote-check` を一度だけ呼ぶ。
+
+plan ファイルを書き出している場合は、続けて更新する: Status を `implemented` に変え、
 「AI が下した判断」節に下記 2 の内容を転記する（コミット履歴に判断記録ごと
 畳み込まれるようにするため）。
 
@@ -287,6 +310,8 @@ reviewer-light を 1 回だけかける（full のような「指摘なし」ま
 - 却下した指摘は理由付きで記録する（覆し明文化はレビューにも適用）
 
 ### Step L5: 完了報告
+
+報告の前に `scripts/audit-ledger.sh promote-check` を一度だけ呼ぶ。
 
 full の Step 7 と同じ構成（変更サマリー / AI が下した判断 / 検証結果 / 残課題・懸念）で
 報告し、commit / push はせずに終える。「AI が下した判断」の先頭にレーン判定の理由を書く。
