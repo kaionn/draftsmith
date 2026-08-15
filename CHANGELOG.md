@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-08-15
+
 ### Added
 
 - 出力契約 要素 1 に「構造ビジュアル」小節を追加: designer は brief の冒頭に、変更後のコードの形を示すビジュアル 1 点（ファイルツリー / Mermaid / 疑似コード / diff スケッチから 1 形式）を置く。人間と auditor が編集指示を読む前に設計の形を検査するためのもので、implementer は参照情報として扱い適用対象にしない。light レーンでは省略可（HumanLayer の show-me スキルの形式選択の考え方を取り込んだもの）
@@ -128,7 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.8.1...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/kaionn/draftsmith/compare/v1.9.0...v1.10.0
 [1.8.1]: https://github.com/kaionn/draftsmith/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/kaionn/draftsmith/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/kaionn/draftsmith/compare/v1.6.0...v1.7.0
