@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 出力契約 要素 1 に「構造ビジュアル」小節を追加: designer は brief の冒頭に、変更後のコードの形を示すビジュアル 1 点（ファイルツリー / Mermaid / 疑似コード / diff スケッチから 1 形式）を置く。人間と auditor が編集指示を読む前に設計の形を検査するためのもので、implementer は参照情報として扱い適用対象にしない。light レーンでは省略可（HumanLayer の show-me スキルの形式選択の考え方を取り込んだもの）
+
 ## [1.8.1] - 2026-08-09
 
 ### Changed
