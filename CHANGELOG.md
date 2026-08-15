@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 出力契約 要素 1 に「構造ビジュアル」小節を追加: designer は brief の冒頭に、変更後のコードの形を示すビジュアル 1 点（ファイルツリー / Mermaid / 疑似コード / diff スケッチから 1 形式）を置く。人間と auditor が編集指示を読む前に設計の形を検査するためのもので、implementer は参照情報として扱い適用対象にしない。light レーンでは省略可（HumanLayer の show-me スキルの形式選択の考え方を取り込んだもの）
 
+## [1.9.0] - 2026-08-13
+
+### Added
+
+- rubric 検証: `templates/rubric.md` を新設（受け入れ条件ごとに criterion / 検証方法 / 期待結果 / 判定の 5 列テーブル）。reviewer-light に第 0 レンズとして事前 rubric の実測照合を追加し、SKILL.md の中央検証へ rubric コマンド実行を統合
+- 監査 pain 台帳と constitution 自動昇格: `scripts/audit-ledger.sh` を新設（bash + jq、fail-open）。監査 3 層からの差し戻しをカテゴリ enum で記帳し、同一カテゴリ 3 回で `constitution.md` へ自動昇格。designer は起動時に constitution.md を読んで設計制約として反映する
+- gated モードの設計 brief HTML 可視化: `templates/brief-visual.md` を新設。設計確定ゲートで designer 出力 5 要素を自己完結 HTML（外部 CDN 非依存）へ流し込んで生成・open し、整形された brief をブラウザでレビューできるようにした
+
 ## [1.8.1] - 2026-08-09
 
 ### Changed
