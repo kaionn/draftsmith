@@ -12,7 +12,7 @@
       "name": "draftsmith",
       "version": "1.10.0",
       "source": "./",
-      "description": "Design-first inner loop for Claude Code: requirements -> design -> audit -> implementation -> light review, one task at a time.",
+      "description": "Design-first task lifecycle: requirements -> design -> audit -> implementation -> light review, with opt-in delivery through PR review and final verification.",
       "author": {
         "name": "kaionn",
         "url": "https://github.com/kaionn"

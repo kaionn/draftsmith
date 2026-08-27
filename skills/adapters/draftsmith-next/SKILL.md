@@ -42,18 +42,23 @@ spec ファイルがあればその該当節へのポインタ）を添えて要
 ### 4. draftsmith の発火
 
 Skill ツールで `draftsmith:draftsmith` を起動し、整形した要件文を args で渡す。
-ユーザーが `--gated` を付けていたらそのまま伝搬する。
+ユーザーが`--gated`、`--through-review`、`--goal=<goal>`、またはfull/light等のinner-loop flagを
+付けていたらそのまま伝搬する。Plans.mdから新規taskを供給するadapterなので
+`--from=delivery`は矛盾として停止し、既存branch/PRでは`draftsmith:draftsmith`を直接使うよう案内する。
 発火したら、このスキルの仕事はいったん終わり（フローの主導権は draftsmith に移る）。
 
 ### 5. 完了後の案内（draftsmith の完了報告が出たら）
 
-draftsmith は commit / push をしない設計なので、変更はワーキングツリーに残っている。
-以下を 2〜3 行で案内する:
+goalが`implemented`なら変更はワーキングツリーに残っているため、以下を2〜3行で案内する:
 
 1. diff を確認して自分で commit する
 2. commit 後に `harness-sync` を実行してマーカー（cc:）を台帳に反映する
 
-このスキルが代行するのはここまで。commit もマーカー更新も実行しない。
+後段goalならcommit/PR/reviewはdraftsmithのdelivery-loopがhuman gate付きで処理済みなので、
+manual commitを重ねて案内しない。goal到達後、commitが実在することを確認してから
+`harness-sync`でマーカーを台帳へ反映する案内だけを出す。
+
+このスキル自身はcommitもマーカー更新も実行しない。
 
 ## 前提
 

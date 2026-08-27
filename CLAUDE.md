@@ -4,13 +4,18 @@
 
 ## プロジェクト構成
 
-- `skills/draftsmith/SKILL.md` — メインスキル（full / light 2 レーン）
+- `skills/draftsmith/SKILL.md` — メインスキル（full / light 2 レーン + opt-in delivery routing）
+- `skills/draftsmith/references/delivery-loop.md` — commit gate からPR review・merge-readyまでのre-entrant lifecycle
+- `skills/draftsmith/scripts/delivery_state.py` — Git metadata配下のdelivery state helper
 - `skills/diff-review/SKILL.md` — 解説つき差分レビュー画面の生成（/diff-review）
 - `skills/plan-commit/SKILL.md` — plan ファイルの畳み込みコミット（/plan-commit）
 - `skills/verify-report/SKILL.md` — 証跡スクショ付き E2E 検証レポート（/verify-report）
 - `skills/adapters/draftsmith-next/SKILL.md` — harness の Plans.md から 1 タスクを draftsmith へ橋渡し（/draftsmith-next）
 - `skills/adapters/` — draftsmith 本体（1 タスクを受け取るインナーループ）に対する、タスク供給元ごとの橋渡し層。供給元固有の依存はここに閉じ込める。discovery は `skills/` 直下 1 階層のみが既定スキャン対象なので、`.claude-plugin/plugin.json` の `skills` 配列に `./skills/adapters/` を明示登録して発見させている
 - `agents/` — designer / auditor / consultant / implementer / reviewer-light / diff-analyzer / evidence-reviewer
+- `tests/test_delivery_state.py` — delivery phase遷移・linked worktree・schemaの回帰テスト
+- `tests/test_plugin_manifest.py` — plugin / marketplace / Skill discovery metadataの整合テスト
+- `.github/workflows/validate.yml` — PRごとのPython 3.10/3.13回帰テストとwhitespace検査
 - `skills/draftsmith/templates/` — 要件書・出力契約・mini-ADR・plan ファイルのテンプレート
 - `skills/diff-review/scripts/` + `templates/` — diff 分割・HTML ビルド（Python stdlib のみ）とレビュー画面テンプレート
 - `skills/verify-report/scripts/` + `templates/` — 証跡埋め込みレポートのビルド（Python stdlib のみ）とテンプレート
