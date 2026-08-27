@@ -38,6 +38,14 @@ class PluginManifestTest(unittest.TestCase):
             "今の差分をPRにして",
             "このPRのCI・レビュー対応を続けて",
             "マージまで進めて",
+            "entry=requirements",
+            "goal=implemented",
+            "entry=delivery",
+            "goal=review_complete",
+            "PR作成=pr_open",
+            "レビュー依頼=review_requested",
+            "merge-ready=merge_ready",
+            "マージ=merged",
         ):
             self.assertIn(phrase, frontmatter)
 

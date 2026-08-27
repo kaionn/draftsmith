@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Codexが自然言語からdraftsmithを選択した直後、本文を読む前に非canonicalなentry/goal名を推測しないよう、共通descriptionへ`requirements` / `delivery` entryと全goalの決定的な写像を追加
+
 ## [1.13.0] - 2026-08-27
 
 ### Added
