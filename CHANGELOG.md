@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-08-27
+
 ### Fixed
 
 - Codexが自然言語からdraftsmithを選択した直後、本文を読む前に非canonicalなentry/goal名を推測しないよう、共通descriptionへ`requirements` / `delivery` entryと全goalの決定的な写像を追加
@@ -167,7 +169,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.13.1...HEAD
+[1.13.1]: https://github.com/kaionn/draftsmith/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/kaionn/draftsmith/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/kaionn/draftsmith/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/kaionn/draftsmith/compare/v1.10.0...v1.11.0
