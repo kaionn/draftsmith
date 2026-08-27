@@ -5,6 +5,7 @@
 ## プロジェクト構成
 
 - `skills/draftsmith/SKILL.md` — メインスキル（full / light 2 レーン + opt-in delivery routing）
+- `skills/draftsmith/agents/openai.yaml` — Codexでの自然言語による暗黙Skill選択を明示的に許可
 - `skills/draftsmith/references/delivery-loop.md` — commit gate からPR review・merge-readyまでのre-entrant lifecycle
 - `skills/draftsmith/scripts/delivery_state.py` — Git metadata配下のdelivery state helper
 - `skills/draftsmith/scripts/delivery_receipt.py` — delivery outcomeのprivacy-minimal receipt

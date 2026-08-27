@@ -78,6 +78,18 @@ splits the loop into three roles with **structurally enforced boundaries**:
 
 ### Usage
 
+Claude Code and Codex can select draftsmith directly from a natural-language request; users do not
+need to type the command name. For example:
+
+```
+Design and implement this change.
+Implement this and open a PR.
+Continue CI and review follow-up for this PR.
+Take this PR through merge-ready.
+```
+
+The explicit command remains available when flags are useful:
+
 ```
 /draftsmith <your requirement in natural language>
 /draftsmith --gated <requirement>
@@ -90,8 +102,9 @@ splits the loop into three roles with **structurally enforced boundaries**:
 /draftsmith --from=delivery --goal=merged <PR> # merge-ready後に別々のready/merge gate
 ```
 
-The default goal remains `implemented`, preserving the existing behavior. Delivery is opt-in with
-`--through-review`, a later `--goal`, or `--from=delivery`. Goals are `implemented`, `pr_open`,
+The default goal remains `implemented`, preserving the existing behavior. Delivery is selected only
+when the natural-language request names a later endpoint, or explicitly with `--through-review`, a
+later `--goal`, or `--from=delivery`. Goals are `implemented`, `pr_open`,
 `review_requested`, `review_complete`, `merge_ready`, and `merged`. The `merged` goal still stops
 at separate ready and merge approval gates; selecting the goal is not standing authorization.
 
@@ -183,7 +196,7 @@ always listed in the final report.
 ### Scope: what draftsmith deliberately does NOT own
 
 - **No task ledger** — it processes exactly one task per invocation
-- **No implicit delivery** — the default `implemented` goal stops at a verified working-tree change
+- **No unrequested delivery** — the default `implemented` goal stops at a verified working-tree change
 - **No automatic merge or release** — later goals can prepare and review one PR, but every external
   mutation is gated and merge/release remain outside the goal
 - **No multi-task orchestration** — task ledgers and batches belong elsewhere
@@ -280,6 +293,17 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 
 ### 使い方
 
+Claude Code/Codexは自然言語の依頼からdraftsmithを選択できるため、コマンド名の入力は不要。
+
+```
+この変更を設計から実装して
+実装してPRを作って
+このPRのCI・レビュー対応を続けて
+このPRをmerge-readyまで進めて
+```
+
+flagを指定したい場合は、従来どおり明示コマンドも利用できる。
+
 ```
 /draftsmith <要件を自然言語で>
 /draftsmith --gated <要件>
@@ -292,8 +316,9 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 /draftsmith --from=delivery --goal=merged <PR> # ready化・mergeの個別承認まで含む
 ```
 
-既定goalは従来どおり`implemented`。deliveryは`--through-review`、後段`--goal`、または
-`--from=delivery`で明示した場合だけ有効になる。goalは`implemented` / `pr_open` /
+既定goalは従来どおり`implemented`。deliveryは自然言語で後段の到達点を依頼した場合、または
+`--through-review`、後段`--goal`、`--from=delivery`を指定した場合だけ有効になる。
+goalは`implemented` / `pr_open` /
 `review_requested` / `review_complete` / `merge_ready` / `merged`。`merged` goalでもready化と
 mergeは別々のhuman gateで、goal指定だけでは実行しない。
 
@@ -376,7 +401,7 @@ PR description への転記用サマリー（コピーボタン付き）を含�
 ### draftsmith が意図的に持たないもの
 
 - **タスク台帳を持たない** — 1 回の起動で 1 タスクだけ処理する
-- **暗黙にdeliveryへ進まない** — 既定の`implemented` goalは検証済みのワーキングツリー変更で止まる
+- **依頼なしにdeliveryへ進まない** — 既定の`implemented` goalは検証済みのワーキングツリー変更で止まる
 - **自動merge・releaseをしない** — 後段goalは単一PRのreviewまで。外部変更は個別gate
 - **複数タスクを一括処理しない** — 台帳・batch orchestrationは他に任せる
 

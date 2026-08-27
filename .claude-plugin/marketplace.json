@@ -12,7 +12,7 @@
       "name": "draftsmith",
       "version": "1.12.0",
       "source": "./",
-      "description": "Design-first task lifecycle: requirements -> design -> audit -> implementation -> light review, with opt-in delivery through PR review and final verification.",
+      "description": "Design-first lifecycle for Claude Code and Codex, with natural-language routing from implementation through PR delivery.",
       "author": {
         "name": "kaionn",
         "url": "https://github.com/kaionn"

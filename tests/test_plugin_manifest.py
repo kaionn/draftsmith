@@ -31,6 +31,24 @@ class PluginManifestTest(unittest.TestCase):
         self.assertIn("\nname: draftsmith\n", f"\n{frontmatter}\n")
         self.assertIn("\ndescription: ", f"\n{frontmatter}\n")
         self.assertIn("\nuser-invocable: true\n", f"\n{frontmatter}\n")
+        self.assertNotIn("disable-model-invocation: true", frontmatter)
+
+        for phrase in (
+            "設計から実装して",
+            "今の差分をPRにして",
+            "このPRのCI・レビュー対応を続けて",
+            "マージまで進めて",
+        ):
+            self.assertIn(phrase, frontmatter)
+
+    def test_codex_allows_implicit_draftsmith_invocation(self) -> None:
+        policy = (
+            ROOT / "skills" / "draftsmith" / "agents" / "openai.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(
+            policy,
+            "policy:\n  allow_implicit_invocation: true\n",
+        )
 
 
 if __name__ == "__main__":

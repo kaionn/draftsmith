@@ -1,6 +1,12 @@
 ---
 name: draftsmith
-description: 設計ファーストで1タスクを要件→設計→監査→実装→light reviewまで進める。full/lightレーンを自動選択し、設計をplanへ残す。既定は従来どおりimplementedで停止する。`--through-review`または`--goal`でcommit gate、draft PR、CI・bot/human review、final verificationまで延長でき、`--from=delivery`なら既存branch/PRのdelivery phaseだけを再開する。「設計から実装して」「設計からPRレビューまで」「このPRの続きをdraftsmithで」で発火。
+description: >-
+  1タスクのコード変更を、設計→監査→実装→検証し、依頼に応じてPR作成・CI/レビュー対応・
+  merge-ready・merge確認まで進める。コマンド名がなくても「設計から実装して」「実装してPRを
+  作って」「今の差分をPRにして」「レビュー依頼まで」「このPRのCI・レビュー対応を続けて」
+  「merge-readyまで」
+  「マージまで進めて」などで使う。既存PRを第三者としてレビューするだけ、差分解説だけ、
+  設計だけ、複数タスクの一括処理には使わない。
 user-invocable: true
 ---
 
@@ -49,6 +55,39 @@ full レーンが Step 4 の末尾、light レーンが Step L2 の末尾。
 **不変ゲート（モードによらず常時人間確認）**: 破壊的操作（ファイル削除・DB 変更・
 既存データの上書き）/ 外部システムへの書き込み / git commit・push。
 自律モードはこれらを免除しない。
+
+## 自然言語からの暗黙呼び出し
+
+Claude/Codexが自然言語の依頼から本Skillを選んだ場合、ユーザーに`/draftsmith`やflagでの
+言い直しを求めない。slash commandを文字列として再実行する必要もない。本Skillをロードした
+同じturnで、依頼の意味を次の`entry × goal`へ正規化し、明示呼び出しと同じworkflowを開始する。
+
+| 自然言語の依頼 | entry | goal |
+|---|---|---|
+| 「設計から実装して」「この機能を設計して実装して」 | `requirements` | `implemented` |
+| 「この機能を実装してPRを作って」「設計からPR作成まで進めて」 | `requirements` | `pr_open` |
+| 「設計からレビュー依頼まで進めて」 | `requirements` | `review_requested` |
+| 「設計からPRレビュー完了まで」「実装後のレビュー対応まで」 | `requirements` | `review_complete` |
+| 「実装してmerge-readyまで」 | `requirements` | `merge_ready` |
+| 「実装してマージまで進めて」 | `requirements` | `merged` |
+| 「今の差分をPRにして」「このbranchのPRを作って」 | `delivery` | `pr_open` |
+| 「このPRのレビュー依頼まで進めて」 | `delivery` | `review_requested` |
+| 「このPRのCI・レビュー対応を続けて」「PRの残りを進めて」 | `delivery` | `review_complete` |
+| 「このPRをmerge-readyまで進めて」 | `delivery` | `merge_ready` |
+| 「このPRをマージまで進めて」 | `delivery` | `merged` |
+
+依頼中に到達点が複数あれば最も後段のgoalを選ぶ。ただし、goalの選択はcommit・push・PR書き込み・
+review依頼・ready化・mergeのstanding authorizationではない。既存の個別human gateを維持する。
+
+次は本Skillへroutingしない:
+
+- 他者のPRについて「レビューして」「コードレビューして」だけを求める依頼
+- 「差分レビュー画面を作って」等、`draftsmith:diff-review`だけを求める依頼
+- 実装を伴わない設計書・調査・説明だけの依頼
+- commitだけを求める依頼（planファイルがあれば`draftsmith:plan-commit`の責務）
+
+「PRレビューまで」がレビュー依頼の送信までか、レビュー完了までか判別できない等、goalが実質的に
+変わる曖昧さだけを確認する。単にコマンドが省略されていることを理由に確認してはならない。
 
 ## lifecycle routing（opt-in）
 
