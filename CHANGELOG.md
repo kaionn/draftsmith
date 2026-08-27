@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- validate/release workflowの`actions/checkout`をv5へ更新し、Node.js 20廃止warningを解消
+- validate/release workflowの`actions/checkout`をv5、`actions/setup-python`をv7へ更新し、Node.js 20廃止warningを解消
 
 ## [1.11.0] - 2026-08-27
 
