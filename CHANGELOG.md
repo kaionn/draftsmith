@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Claude/Codexの暗黙Skill選択を明示的に有効化し、「設計から実装して」「このPRのCI・レビュー対応を続けて」「マージまで進めて」等の自然言語をrequirements/delivery entryと到達goalへ正規化するrouting contractを追加。slash commandでの言い直しを求めず、従来の個別human gateは維持する
+
 ## [1.12.0] - 2026-08-27
 
 ### Added
