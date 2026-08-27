@@ -7,6 +7,9 @@
 - `skills/draftsmith/SKILL.md` — メインスキル（full / light 2 レーン + opt-in delivery routing）
 - `skills/draftsmith/references/delivery-loop.md` — commit gate からPR review・merge-readyまでのre-entrant lifecycle
 - `skills/draftsmith/scripts/delivery_state.py` — Git metadata配下のdelivery state helper
+- `skills/draftsmith/scripts/delivery_receipt.py` — delivery outcomeのprivacy-minimal receipt
+- `skills/adapters/draftsmith-delivery-driver/SKILL.md` — single-driver lease付き再開adapter
+- `skills/adapters/draftsmith-loop-improve/SKILL.md` — receiptからproposal-only改善案を作るadapter
 - `skills/diff-review/SKILL.md` — 解説つき差分レビュー画面の生成（/diff-review）
 - `skills/plan-commit/SKILL.md` — plan ファイルの畳み込みコミット（/plan-commit）
 - `skills/verify-report/SKILL.md` — 証跡スクショ付き E2E 検証レポート（/verify-report）

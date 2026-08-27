@@ -38,7 +38,7 @@ jobs:
       # CHANGELOG の日付が runner の UTC で日本の前日にならないようにする
       TZ: Asia/Tokyo
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
 
@@ -57,7 +57,7 @@ jobs:
     if: always() && (needs.bump.result == 'success' || needs.bump.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # bump ジョブが push した commit を含む最新 main を対象にする
           # （push トリガー時も plugin.json の現在値 = SSOT を読む意味は同じ）

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- delivery state schema v2: review thread IDとhead SHAから作る非可逆fingerprint、disposition、CI/設計/実装/人間判断counter、single-driver leaseを追加。v1 stateは読み込み時にv2へ正規化し、次回updateで移行する
+- privacy-minimal delivery receiptとproposal-only改善adapterを追加。receiptはcounter、cycle、elapsed timeだけを持ち、review本文・fingerprint一覧・authorizationを含めない
+- manual/runtime monitor/GitHub eventを同じbounded advanceへ接続するdriver adapterを追加
+- opt-in `merged` goalと`merge_gate`を追加。ready化とmergeは別々のhuman gateで、GitHubのmerged stateを実測した場合だけdoneへ進む
+
+### Changed
+
+- validate/release workflowの`actions/checkout`をv5、`actions/setup-python`をv7へ更新し、Node.js 20廃止warningを解消
+
 ## [1.11.0] - 2026-08-27
 
 ### Added

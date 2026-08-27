@@ -12,14 +12,14 @@ import subprocess
 import sys
 import tempfile
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 ENTRIES = ("requirements", "delivery")
-GOALS = ("implemented", "pr_open", "review_requested", "review_complete", "merge_ready")
+GOALS = ("implemented", "pr_open", "review_requested", "review_complete", "merge_ready", "merged")
 PHASES = (
     "implemented",
     "commit_gate",
@@ -33,6 +33,7 @@ PHASES = (
     "wait_human_review",
     "review_complete",
     "merge_ready",
+    "merge_gate",
     "done",
     "blocked",
 )
@@ -80,11 +81,22 @@ FORWARD = {
     "prepare_review_request": {"wait_human_review"},
     "wait_human_review": {"review_triage", "review_complete"},
     "review_complete": {"final_verify"},
-    "merge_ready": {"review_triage", "done"},
+    "merge_ready": {"review_triage", "merge_gate"},
+    "merge_gate": {"done"},
     "done": set(),
     "blocked": set(PHASES) - {"done"},
 }
 SHA_RE = re.compile(r"[0-9a-f]{7,64}")
+FINGERPRINT_RE = re.compile(r"[0-9a-f]{64}")
+DISPOSITIONS = ("implementation", "design", "question", "no_action", "human_decision")
+METRIC_EVENTS = ("ci_failure", "implementation_finding", "design_finding", "human_decision")
+DRIVER_KINDS = ("manual", "runtime_monitor", "github_event")
+METRIC_DEFAULTS = {
+    "ci_failures": 0,
+    "implementation_findings": 0,
+    "design_findings": 0,
+    "human_decisions": 0,
+}
 
 
 class StateError(RuntimeError):
@@ -156,6 +168,9 @@ def validate_state(state: dict[str, Any]) -> None:
         "last_observation",
         "review_cycles",
         "revision",
+        "handled_reviews",
+        "metrics",
+        "driver",
         "created_at",
         "updated_at",
     }
@@ -182,8 +197,56 @@ def validate_state(state: dict[str, Any]) -> None:
         raise StateError("review_cycles must be a non-negative integer")
     if not isinstance(state["revision"], int) or state["revision"] < 0:
         raise StateError("revision must be a non-negative integer")
+    if not isinstance(state["handled_reviews"], list):
+        raise StateError("handled_reviews must be a list")
+    seen = set()
+    for item in state["handled_reviews"]:
+        if not isinstance(item, dict) or set(item) != {"fingerprint", "disposition"}:
+            raise StateError("handled review entries must contain fingerprint and disposition")
+        if not FINGERPRINT_RE.fullmatch(item["fingerprint"]):
+            raise StateError("invalid review fingerprint")
+        if item["disposition"] not in DISPOSITIONS:
+            raise StateError("invalid review disposition")
+        if item["fingerprint"] in seen:
+            raise StateError("duplicate review fingerprint")
+        seen.add(item["fingerprint"])
+    if not isinstance(state["metrics"], dict) or set(state["metrics"]) != set(METRIC_DEFAULTS):
+        raise StateError("metrics has invalid keys")
+    if any(not isinstance(value, int) or value < 0 for value in state["metrics"].values()):
+        raise StateError("metric values must be non-negative integers")
+    driver = state["driver"]
+    if driver is not None:
+        if not isinstance(driver, dict) or set(driver) != {"kind", "lease_id", "lease_until"}:
+            raise StateError("driver has invalid keys")
+        if driver["kind"] not in DRIVER_KINDS:
+            raise StateError("invalid driver kind")
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,96}", driver["lease_id"]):
+            raise StateError("invalid driver lease_id")
+        parse_timestamp(driver["lease_until"])
     if not isinstance(state["key"], str) or not isinstance(state["branch"], str):
         raise StateError("key and branch must be strings")
+
+
+def parse_timestamp(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, ValueError) as exc:
+        raise StateError(f"invalid timestamp: {value}") from exc
+    if parsed.tzinfo is None:
+        raise StateError("timestamp must include timezone")
+    return parsed.astimezone(timezone.utc)
+
+
+def migrate_state(state: dict[str, Any]) -> dict[str, Any]:
+    if state.get("schema_version") == 1:
+        state = dict(state)
+        state.update(
+            schema_version=2,
+            handled_reviews=[],
+            metrics=dict(METRIC_DEFAULTS),
+            driver=None,
+        )
+    return state
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -195,6 +258,7 @@ def load(path: Path) -> dict[str, Any]:
         raise StateError(f"cannot read state: {exc}") from exc
     if not isinstance(state, dict):
         raise StateError("state must be a JSON object")
+    state = migrate_state(state)
     validate_state(state)
     return state
 
@@ -296,6 +360,9 @@ def command_init(args: argparse.Namespace, path: Path, branch: str, key: str) ->
             "last_observation": "none",
             "review_cycles": 0,
             "revision": 0,
+            "handled_reviews": [],
+            "metrics": dict(METRIC_DEFAULTS),
+            "driver": None,
             "created_at": now,
             "updated_at": now,
         }
@@ -346,6 +413,88 @@ def command_update(args: argparse.Namespace, path: Path) -> None:
     output(state)
 
 
+def require_revision(state: dict[str, Any], expected: int) -> None:
+    if expected != state["revision"]:
+        raise StateError(f"revision conflict: expected {expected}, current {state['revision']}")
+
+
+def command_record_review(args: argparse.Namespace, path: Path) -> None:
+    with state_lock(path):
+        state = load(path)
+        require_revision(state, args.expect_revision)
+        existing = {item["fingerprint"]: item["disposition"] for item in state["handled_reviews"]}
+        if args.fingerprint in existing:
+            if existing[args.fingerprint] != args.disposition:
+                raise StateError("review fingerprint already exists with another disposition")
+            output(state)
+            return
+        state["handled_reviews"].append(
+            {"fingerprint": args.fingerprint, "disposition": args.disposition}
+        )
+        metric = {
+            "implementation": "implementation_findings",
+            "design": "design_findings",
+            "human_decision": "human_decisions",
+        }.get(args.disposition)
+        if metric:
+            state["metrics"][metric] += 1
+        state["revision"] += 1
+        state["updated_at"] = utc_now()
+        write_atomic(path, state)
+    output(state)
+
+
+def command_record_event(args: argparse.Namespace, path: Path) -> None:
+    with state_lock(path):
+        state = load(path)
+        require_revision(state, args.expect_revision)
+        field = {
+            "ci_failure": "ci_failures",
+            "implementation_finding": "implementation_findings",
+            "design_finding": "design_findings",
+            "human_decision": "human_decisions",
+        }[args.event]
+        state["metrics"][field] += 1
+        state["revision"] += 1
+        state["updated_at"] = utc_now()
+        write_atomic(path, state)
+    output(state)
+
+
+def command_claim_driver(args: argparse.Namespace, path: Path) -> None:
+    with state_lock(path):
+        state = load(path)
+        require_revision(state, args.expect_revision)
+        current = state["driver"]
+        now = datetime.now(timezone.utc)
+        if current and parse_timestamp(current["lease_until"]) > now and current["lease_id"] != args.lease_id:
+            raise StateError("delivery state already has an active driver lease")
+        state["driver"] = {
+            "kind": args.kind,
+            "lease_id": args.lease_id,
+            "lease_until": (now + timedelta(seconds=args.lease_seconds))
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z"),
+        }
+        state["revision"] += 1
+        state["updated_at"] = utc_now()
+        write_atomic(path, state)
+    output(state)
+
+
+def command_release_driver(args: argparse.Namespace, path: Path) -> None:
+    with state_lock(path):
+        state = load(path)
+        require_revision(state, args.expect_revision)
+        if state["driver"] is None or state["driver"]["lease_id"] != args.lease_id:
+            raise StateError("driver lease is not owned by the requested lease_id")
+        state["driver"] = None
+        state["revision"] += 1
+        state["updated_at"] = utc_now()
+        write_atomic(path, state)
+    output(state)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default=".", help="path inside the target git repository")
@@ -381,6 +530,29 @@ def build_parser() -> argparse.ArgumentParser:
     update_parser.add_argument("--pending-gate", choices=GATES)
     update_parser.add_argument("--observation", choices=OBSERVATIONS)
     update_parser.add_argument("--increment-review-cycles", action="store_true")
+
+    fingerprint_parser = commands.add_parser("fingerprint", help="hash a review thread id and head SHA")
+    fingerprint_parser.add_argument("--thread-id", required=True)
+    fingerprint_parser.add_argument("--head-sha", required=True)
+
+    review_parser = commands.add_parser("record-review", help="record a handled review fingerprint")
+    review_parser.add_argument("--expect-revision", type=int, required=True)
+    review_parser.add_argument("--fingerprint", choices=None, required=True)
+    review_parser.add_argument("--disposition", choices=DISPOSITIONS, required=True)
+
+    event_parser = commands.add_parser("record-event", help="increment a delivery metric")
+    event_parser.add_argument("--expect-revision", type=int, required=True)
+    event_parser.add_argument("--event", choices=METRIC_EVENTS, required=True)
+
+    claim_parser = commands.add_parser("claim-driver", help="claim or renew a single-driver lease")
+    claim_parser.add_argument("--expect-revision", type=int, required=True)
+    claim_parser.add_argument("--kind", choices=DRIVER_KINDS, required=True)
+    claim_parser.add_argument("--lease-id", required=True)
+    claim_parser.add_argument("--lease-seconds", type=int, default=300)
+
+    release_parser = commands.add_parser("release-driver", help="release an owned driver lease")
+    release_parser.add_argument("--expect-revision", type=int, required=True)
+    release_parser.add_argument("--lease-id", required=True)
     return parser
 
 
@@ -390,6 +562,9 @@ def main() -> int:
         _root, branch, key, path = resolve(args.repo, args.key)
         if args.command == "resolve":
             print(json.dumps(resolve_routing(args.entry, args.goal, args.through_review), sort_keys=True))
+        elif args.command == "fingerprint":
+            validate_sha(args.head_sha, "head_sha")
+            print(hashlib.sha256(f"{args.thread_id}\0{args.head_sha}".encode()).hexdigest())
         elif args.command == "path":
             print(path)
         elif args.command == "init":
@@ -401,6 +576,20 @@ def main() -> int:
             print(f"valid schema={state['schema_version']} phase={state['phase']} key={state['key']}")
         elif args.command == "update":
             command_update(args, path)
+        elif args.command == "record-review":
+            if not FINGERPRINT_RE.fullmatch(args.fingerprint):
+                raise StateError("fingerprint must be a 64 character lowercase hex digest")
+            command_record_review(args, path)
+        elif args.command == "record-event":
+            command_record_event(args, path)
+        elif args.command == "claim-driver":
+            if args.lease_seconds < 30 or args.lease_seconds > 3600:
+                raise StateError("lease_seconds must be between 30 and 3600")
+            if not re.fullmatch(r"[A-Za-z0-9._-]{1,96}", args.lease_id):
+                raise StateError("invalid driver lease_id")
+            command_claim_driver(args, path)
+        elif args.command == "release-driver":
+            command_release_driver(args, path)
     except StateError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

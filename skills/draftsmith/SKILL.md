@@ -65,7 +65,7 @@ python3 <skill-root>/scripts/delivery_state.py --repo . resolve \
 - `--from=requirements`（既定）: 従来のfull/light inner loopから開始する。
 - `--from=delivery`: Step 0〜7 / L1〜L5をskipし、現在branch/PRからdelivery phaseを開始する。
 - `--goal=implemented`（既定）: 従来どおりinner loop完了で停止する。
-- 後段goal: `pr_open` / `review_requested` / `review_complete` / `merge_ready`。
+- 後段goal: `pr_open` / `review_requested` / `review_complete` / `merge_ready` / `merged`。
 - `--through-review`: `--from=requirements --goal=review_complete`のshortcut。
 
 flagが無くても、依頼が現在PR/branchのCI・review・レビュー依頼・merge-readyへの続行だけを
@@ -83,6 +83,8 @@ flagが無くても、依頼が現在PR/branchのCI・review・レビュー依�
 通常runではreferenceを読まず、現行inner loopのcontext量と挙動を維持する。
 delivery state更新はhelperのlock + `--expect-revision`を必須とし、複数sessionの
 last-write-winsを許さない。
+`merged` goalは`merge_ready`後に`merge_gate`で停止し、ready化とmergeの現在時点の承認を
+別々に確認する。GitHubの`pr_merged`を実測した場合だけ`done`へ進む。
 
 ## レーン判定（Step 0）
 
