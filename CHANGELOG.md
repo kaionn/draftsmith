@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-08-27
+
 ### Added
 
 - opt-in PR delivery lifecycle: `/draftsmith --through-review`で従来の要件・設計・監査・実装・reviewer-light完了後に、plan-commitのhuman gate、draft PR、required CI、bot/human review、review修正、最新headのfinal verificationまで続行できるようにした。既定goalは従来どおり`implemented`で、暗黙にcommit・push・PR作成へ進まない
@@ -142,7 +144,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/kaionn/draftsmith/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/kaionn/draftsmith/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/kaionn/draftsmith/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/kaionn/draftsmith/compare/v1.8.0...v1.8.1
