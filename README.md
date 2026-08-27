@@ -87,11 +87,13 @@ splits the loop into three roles with **structurally enforced boundaries**:
 /draftsmith --fable <requirement>    # run the designer on the Fable model
 /draftsmith --through-review <requirement> # continue through human PR review
 /draftsmith --from=delivery --goal=merge_ready <PR> # start at an existing branch/PR
+/draftsmith --from=delivery --goal=merged <PR> # merge-ready後に別々のready/merge gate
 ```
 
 The default goal remains `implemented`, preserving the existing behavior. Delivery is opt-in with
 `--through-review`, a later `--goal`, or `--from=delivery`. Goals are `implemented`, `pr_open`,
-`review_requested`, `review_complete`, and `merge_ready`; merge itself is never implied.
+`review_requested`, `review_complete`, `merge_ready`, and `merged`. The `merged` goal still stops
+at separate ready and merge approval gates; selecting the goal is not standing authorization.
 
 PR feedback is classified before action. Implementation findings return to a targeted implementer
 and reviewer-light pass; design or requirement findings return to designer and auditor; questions,
@@ -287,11 +289,13 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 /draftsmith --fable <要件>    # designer を Fable モデルで起動
 /draftsmith --through-review <要件> # human PR review完了まで続行
 /draftsmith --from=delivery --goal=merge_ready <PR> # 既存branch/PRから開始
+/draftsmith --from=delivery --goal=merged <PR> # ready化・mergeの個別承認まで含む
 ```
 
 既定goalは従来どおり`implemented`。deliveryは`--through-review`、後段`--goal`、または
 `--from=delivery`で明示した場合だけ有効になる。goalは`implemented` / `pr_open` /
-`review_requested` / `review_complete` / `merge_ready`。merge自体はどのgoalにも含まれない。
+`review_requested` / `review_complete` / `merge_ready` / `merged`。`merged` goalでもready化と
+mergeは別々のhuman gateで、goal指定だけでは実行しない。
 
 PR feedbackは実行前に分類する。実装指摘はtargeted implementer + reviewer-lightへ、
 設計・要件指摘はdesigner + auditorへ戻す。質問、reply、resolve、曖昧な判断はhuman gateで
@@ -393,6 +397,9 @@ skills/draftsmith/SKILL.md      # メインフロー（7 ステップ）
 skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR・plan ファイル・rubric・brief-visual
 skills/draftsmith/references/   # opt-in delivery / PR review lifecycle
 skills/draftsmith/scripts/      # delivery state helper
+skills/adapters/draftsmith-delivery-driver/SKILL.md # single-driver lease付きの再開adapter
+skills/adapters/draftsmith-loop-improve/SKILL.md # receiptからproposal-only改善
+skills/draftsmith/scripts/delivery_receipt.py # privacy-minimal delivery計測
 skills/diff-review/SKILL.md     # 解説つき差分レビュー画面（/diff-review）
 skills/diff-review/scripts/     # diff 分割・HTML ビルド（Python stdlib のみ）
 skills/diff-review/templates/   # レビュー画面テンプレート

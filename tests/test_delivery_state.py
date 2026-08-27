@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skills" / "draftsmith" / "scripts" / "delivery_state.py"
+RECEIPT_SCRIPT = ROOT / "skills" / "draftsmith" / "scripts" / "delivery_receipt.py"
 
 
 class DeliveryStateTest(unittest.TestCase):
@@ -199,6 +200,156 @@ class DeliveryStateTest(unittest.TestCase):
         )
         self.assertEqual(conflict.returncode, 2)
         self.assertIn("conflicts", conflict.stderr)
+
+        merged = json.loads(
+            self.state("resolve", "--entry", "delivery", "--goal", "merged").stdout
+        )
+        self.assertEqual(merged, {"entry": "delivery", "goal": "merged"})
+
+    def test_review_fingerprint_is_non_reversible_and_deduplicated(self) -> None:
+        head_sha = self.git("rev-parse", "HEAD").stdout.strip()
+        fingerprint = self.state(
+            "fingerprint", "--thread-id", "thread-42", "--head-sha", head_sha
+        ).stdout.strip()
+        self.assertEqual(len(fingerprint), 64)
+        self.assertNotIn("thread-42", fingerprint)
+
+        self.state("init", "--goal", "review_complete")
+        recorded = self.state(
+            "record-review",
+            "--expect-revision",
+            "0",
+            "--fingerprint",
+            fingerprint,
+            "--disposition",
+            "implementation",
+        )
+        payload = json.loads(recorded.stdout)
+        self.assertEqual(payload["revision"], 1)
+        self.assertEqual(payload["metrics"]["implementation_findings"], 1)
+
+        duplicate = self.state(
+            "record-review",
+            "--expect-revision",
+            "1",
+            "--fingerprint",
+            fingerprint,
+            "--disposition",
+            "implementation",
+        )
+        self.assertEqual(json.loads(duplicate.stdout)["revision"], 1)
+
+        conflict = self.state(
+            "record-review",
+            "--expect-revision",
+            "1",
+            "--fingerprint",
+            fingerprint,
+            "--disposition",
+            "design",
+            check=False,
+        )
+        self.assertEqual(conflict.returncode, 2)
+
+    def test_single_driver_lease(self) -> None:
+        self.state("init", "--goal", "review_complete")
+        claimed = self.state(
+            "claim-driver",
+            "--expect-revision",
+            "0",
+            "--kind",
+            "runtime_monitor",
+            "--lease-id",
+            "driver-a",
+            "--lease-seconds",
+            "60",
+        )
+        self.assertEqual(json.loads(claimed.stdout)["revision"], 1)
+
+        blocked = self.state(
+            "claim-driver",
+            "--expect-revision",
+            "1",
+            "--kind",
+            "github_event",
+            "--lease-id",
+            "driver-b",
+            check=False,
+        )
+        self.assertEqual(blocked.returncode, 2)
+        self.assertIn("active driver lease", blocked.stderr)
+
+        released = self.state(
+            "release-driver", "--expect-revision", "1", "--lease-id", "driver-a"
+        )
+        self.assertIsNone(json.loads(released.stdout)["driver"])
+
+    def test_merged_goal_requires_merge_gate_and_observation(self) -> None:
+        self.state(
+            "init",
+            "--entry",
+            "delivery",
+            "--goal",
+            "merged",
+            "--phase",
+            "merge_ready",
+            "--pr-number",
+            "42",
+        )
+        self.update("--phase", "merge_gate")
+        rejected = self.update("--phase", "done", check=False)
+        self.assertEqual(rejected.returncode, 2)
+        self.update("--phase", "done", "--observation", "pr_merged")
+        self.assertEqual(json.loads(self.state("show").stdout)["phase"], "done")
+
+    def test_schema_v1_is_migrated_on_next_update(self) -> None:
+        self.state("init", "--goal", "review_complete")
+        path = Path(self.state("path").stdout.strip())
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["schema_version"] = 1
+        for field in ("handled_reviews", "metrics", "driver"):
+            payload.pop(field)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+        migrated = json.loads(self.state("show").stdout)
+        self.assertEqual(migrated["schema_version"], 2)
+        self.assertEqual(migrated["handled_reviews"], [])
+        self.update("--phase", "commit_gate", expect_revision=0)
+        persisted = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(persisted["schema_version"], 2)
+
+    def test_receipt_contains_metrics_without_review_content(self) -> None:
+        self.state(
+            "init",
+            "--entry",
+            "delivery",
+            "--goal",
+            "review_complete",
+            "--phase",
+            "review_complete",
+            "--pr-number",
+            "42",
+        )
+        event = self.state(
+            "record-event",
+            "--expect-revision",
+            "0",
+            "--event",
+            "ci_failure",
+        )
+        self.assertEqual(json.loads(event.stdout)["metrics"]["ci_failures"], 1)
+        receipt_result = subprocess.run(
+            [sys.executable, str(RECEIPT_SCRIPT), "--repo", str(self.repo)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        receipt_path = Path(receipt_result.stdout.strip())
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        self.assertEqual(receipt["metrics"]["ci_failures"], 1)
+        self.assertNotIn("handled_reviews", receipt)
+        self.assertNotIn("authorization", receipt)
+        self.assertEqual(stat.S_IMODE(receipt_path.stat().st_mode), 0o600)
 
     def test_delivery_documentation_matches_state_enums(self) -> None:
         state = runpy.run_path(str(SCRIPT))
