@@ -6,7 +6,10 @@ description: >-
   作って」「今の差分をPRにして」「レビュー依頼まで」「このPRのCI・レビュー対応を続けて」
   「merge-readyまで」
   「マージまで進めて」などで使う。既存PRを第三者としてレビューするだけ、差分解説だけ、
-  設計だけ、複数タスクの一括処理には使わない。
+  設計だけ、複数タスクの一括処理には使わない。新しい変更はentry=requirements（既定
+  goal=implemented）、現在branch/PRの続行はentry=delivery（既定goal=review_complete）。
+  到達点はPR作成=pr_open、レビュー依頼=review_requested、レビュー完了=review_complete、
+  merge-ready=merge_ready、マージ=mergedへ正規化する。
 user-invocable: true
 ---
 
