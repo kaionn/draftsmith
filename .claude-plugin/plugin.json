@@ -1,7 +1,7 @@
 {
   "name": "draftsmith",
   "version": "1.10.0",
-  "description": "Design-first inner loop for Claude Code: requirements -> design -> audit -> implementation -> light review, one task at a time. A dedicated designer agent drafts, the main session audits, and an implementer applies verbatim briefs.",
+  "description": "Design-first task lifecycle for Claude Code: requirements -> design -> audit -> implementation -> light review, with opt-in delivery through draft PR, CI, bot and human review, and final verification.",
   "author": {
     "name": "kaionn",
     "url": "https://github.com/kaionn"

@@ -1,8 +1,9 @@
 # draftsmith
 
-Design-first inner loop for Claude Code — 設計ファーストのインナーループを Claude Code に足すプラグイン。
+Design-first task lifecycle for Claude Code — 設計ファーストのinner loopを、必要に応じてPR reviewまで延長するプラグイン。
 
-One task in, reviewed change out: **requirements → design → audit → implementation → light review**.
+One task in, reviewed change out by default; opt in to delivery through reviewed PR:
+**requirements → design → audit → implementation → light review → PR → review → final verification**.
 
 ```mermaid
 flowchart LR
@@ -16,7 +17,15 @@ flowchart LR
     I --> V[Central verification<br/>format / lint / test]
     V --> L{reviewer-light<br/>checks rubric}
     L -- 指摘あり --> I
-    L -- 指摘なし --> F[Report<br/>完了報告<br/>no commit / no push]
+    L -- 指摘なし --> F{Goal}
+    F -- implemented --> STOP[Report<br/>従来どおり停止]
+    F -- later goal --> C[Commit gate<br/>plan-commit]
+    C --> P[Draft PR]
+    P --> R{CI / bot / human review}
+    R -- implementation finding --> I
+    R -- design finding --> D
+    R -- review complete --> FV[Final verification]
+    FV --> MR[Merge-ready<br/>no merge]
 ```
 
 ---
@@ -76,7 +85,19 @@ splits the loop into three roles with **structurally enforced boundaries**:
 /draftsmith --full <requirement>    # force the full lane
 /draftsmith --no-audit <requirement> # skip the independent design audit
 /draftsmith --fable <requirement>    # run the designer on the Fable model
+/draftsmith --through-review <requirement> # continue through human PR review
+/draftsmith --from=delivery --goal=merge_ready <PR> # start at an existing branch/PR
 ```
+
+The default goal remains `implemented`, preserving the existing behavior. Delivery is opt-in with
+`--through-review`, a later `--goal`, or `--from=delivery`. Goals are `implemented`, `pr_open`,
+`review_requested`, `review_complete`, and `merge_ready`; merge itself is never implied.
+
+PR feedback is classified before action. Implementation findings return to a targeted implementer
+and reviewer-light pass; design or requirement findings return to designer and auditor; questions,
+replies, resolves, and ambiguous decisions stop at a human gate. Delivery state is stored under Git
+metadata so CI and review waits can resume in a later run without dirtying the working tree. A
+cross-process lock plus optimistic `revision` check rejects concurrent stale updates.
 
 ```
 /diff-review                 # annotated review screen for uncommitted changes
@@ -135,8 +156,9 @@ the PR description. Full verdict coverage is machine-verified by the build scrip
   never used without explicit user permission — the flag, a go-ahead in conversation, or
   a one-time upgrade proposal draftsmith may make on clearly heavyweight tasks. The chosen
   model is recorded in the final report. Designer only; other agents keep their defaults.
-- **Invariant gates (both modes)**: destructive operations, writes to external systems,
-  and `git commit` / `push` always require a human. draftsmith never commits or pushes.
+- **Invariant gates (all goals)**: destructive operations and every external mutation remain
+  human-gated. In delivery mode, commit, push, PR writes, review replies/resolves, review requests,
+  ready, and merge are separate gates; the default `implemented` goal never commits or pushes.
 
 ### Lanes: full vs light
 
@@ -159,8 +181,10 @@ always listed in the final report.
 ### Scope: what draftsmith deliberately does NOT own
 
 - **No task ledger** — it processes exactly one task per invocation
-- **No PR creation, no commit, no push** — it stops at a verified working-tree change
-- **No full-cycle orchestration** — plan management and release flows belong elsewhere
+- **No implicit delivery** — the default `implemented` goal stops at a verified working-tree change
+- **No automatic merge or release** — later goals can prepare and review one PR, but every external
+  mutation is gated and merge/release remain outside the goal
+- **No multi-task orchestration** — task ledgers and batches belong elsewhere
 
 ### Using alongside claude-code-harness
 
@@ -176,6 +200,11 @@ owns the inner loop of a single task. A working combination:
 
 The two plugins stay loosely coupled: draftsmith reads a task *description*, never
 harness's internal state.
+
+With `/draftsmith-next --through-review`, the adapter propagates the later goal: draftsmith handles
+the commit/PR/review lifecycle behind its human gates, and `harness-sync` runs only after a commit
+actually exists. `--from=delivery` is intentionally rejected by draftsmith-next because a new
+Plans.md task is a requirements entry; invoke draftsmith directly for an existing branch or PR.
 
 ### Example run
 
@@ -256,7 +285,19 @@ designer/implementer split plus an auditable reply contract, at single-task gran
 /draftsmith --full <要件>     # full レーンを強制
 /draftsmith --no-audit <要件> # auditor 独立監査を省略
 /draftsmith --fable <要件>    # designer を Fable モデルで起動
+/draftsmith --through-review <要件> # human PR review完了まで続行
+/draftsmith --from=delivery --goal=merge_ready <PR> # 既存branch/PRから開始
 ```
+
+既定goalは従来どおり`implemented`。deliveryは`--through-review`、後段`--goal`、または
+`--from=delivery`で明示した場合だけ有効になる。goalは`implemented` / `pr_open` /
+`review_requested` / `review_complete` / `merge_ready`。merge自体はどのgoalにも含まれない。
+
+PR feedbackは実行前に分類する。実装指摘はtargeted implementer + reviewer-lightへ、
+設計・要件指摘はdesigner + auditorへ戻す。質問、reply、resolve、曖昧な判断はhuman gateで
+停止する。delivery stateはGit metadata配下に保存され、working treeを汚さずCI/review待ちを
+別runから再開できる。cross-process lockとoptimistic `revision`照合により、Claude/Codexの
+古いstate更新を拒否する。
 
 ```
 /diff-review                 # 未コミット差分の解説つきレビュー画面
@@ -310,8 +351,9 @@ PR description への転記用サマリー（コピーボタン付き）を含�
 - **`--fable`**: designer を Fable（Opus 上位ティア）で起動する。Fable の使用には必ず
   ユーザー許可が要る — フラグ指定・会話での明示許可・重量級タスクでの 1 回だけの
   昇格提案への承認のいずれか。選択モデルは完了報告に記録される。対象は designer のみ
-- **不変ゲート（両モード共通）**: 破壊的操作・外部システムへの書き込み・
-  `git commit` / `push` は常に人間確認。draftsmith は commit / push を一切しない
+- **不変ゲート（全goal共通）**: 破壊的操作と外部変更は常に人間確認。delivery modeでも
+  commit、push、PR書き込み、review reply/resolve、review依頼、ready、mergeは別々のgate。
+  既定の`implemented` goalはcommit / pushを行わない
 
 ### レーン: full と light
 
@@ -330,8 +372,9 @@ PR description への転記用サマリー（コピーボタン付き）を含�
 ### draftsmith が意図的に持たないもの
 
 - **タスク台帳を持たない** — 1 回の起動で 1 タスクだけ処理する
-- **PR 作成・commit・push をしない** — 検証済みのワーキングツリー変更で止まる
-- **フルサイクルのオーケストレーションをしない** — 計画管理・リリースは他に任せる
+- **暗黙にdeliveryへ進まない** — 既定の`implemented` goalは検証済みのワーキングツリー変更で止まる
+- **自動merge・releaseをしない** — 後段goalは単一PRのreviewまで。外部変更は個別gate
+- **複数タスクを一括処理しない** — 台帳・batch orchestrationは他に任せる
 
 ### 構成
 
@@ -348,6 +391,8 @@ agents/diff-analyzer.md         # 差分の意味グルーピング（読み取�
 agents/evidence-reviewer.md     # 証跡スクショの独立判定（読み取り専用・vision）
 skills/draftsmith/SKILL.md      # メインフロー（7 ステップ）
 skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR・plan ファイル・rubric・brief-visual
+skills/draftsmith/references/   # opt-in delivery / PR review lifecycle
+skills/draftsmith/scripts/      # delivery state helper
 skills/diff-review/SKILL.md     # 解説つき差分レビュー画面（/diff-review）
 skills/diff-review/scripts/     # diff 分割・HTML ビルド（Python stdlib のみ）
 skills/diff-review/templates/   # レビュー画面テンプレート
@@ -357,6 +402,7 @@ skills/verify-report/scripts/   # レポートビルド（Python stdlib のみ�
 skills/verify-report/templates/ # レポートテンプレート
 skills/adapters/                # タスク供給元ごとの橋渡し層
 skills/adapters/draftsmith-next/SKILL.md # harness の Plans.md から 1 タスクを draftsmith へ橋渡し（/draftsmith-next）
+tests/test_delivery_state.py    # delivery stateのphase・worktree・schema回帰テスト
 ```
 
 ## License

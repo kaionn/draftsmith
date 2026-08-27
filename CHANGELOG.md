@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- opt-in PR delivery lifecycle: `/draftsmith --through-review`で従来の要件・設計・監査・実装・reviewer-light完了後に、plan-commitのhuman gate、draft PR、required CI、bot/human review、review修正、最新headのfinal verificationまで続行できるようにした。既定goalは従来どおり`implemented`で、暗黙にcommit・push・PR作成へ進まない
+- late entryと到達goal: `--from=delivery`でdesigner/auditor/初回implementerをskipして既存branch/PRから再開でき、`--goal=pr_open|review_requested|review_complete|merge_ready`で停止地点を選べる。`--through-review`は`review_complete`へのshortcut
+- `draftsmith-next`は`--through-review`と後段`--goal`をrequirements entryへ伝搬し、delivery完了後にmanual commit案内を重複させない。Plans.mdの新規taskと矛盾する`--from=delivery`は拒否する
+- re-entrant delivery state: phase、goal、plan相対path、commit/head SHA、PR番号、enum観測値だけをGit metadata配下へ600権限・atomic replaceで保存するhelperを追加。cross-process lockと`revision` CASで同時sessionのlast-write-winsを拒否し、通常/linked worktree・detached HEAD・不正遷移・schema・stale revision・lock競合を回帰テストする
+- PR validation CI: Python 3.10/3.13で標準unit test discoveryを実行し、delivery goal/phaseの文書被覆、plugin/marketplace/frontmatter整合、PR差分のwhitespaceをmerge前に検査するworkflowを追加
+
+### Changed
+
+- PR feedbackを実装指摘・設計/要件指摘・質問/人間判断へ分類し、実装指摘はtargeted implementer + reviewer-light、設計指摘はdesigner + auditorへ戻すback edgeを定義した。reply、resolve、push等の外部変更はそれぞれhuman gateを維持する
+
 ## [1.10.0] - 2026-08-15
 
 ### Added

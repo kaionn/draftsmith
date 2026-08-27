@@ -1,6 +1,6 @@
 ---
 name: draftsmith
-description: 設計ファーストのインナーループを 1 タスク分回す。自然言語の要件（または Plans.md の 1 タスク行）を受け取り、タスクの軽重で full / light の 2 レーンを入口で自動選択し、full は要件正規化 → designer 設計 → 形式監査 3 層 + auditor 独立監査 → implementer 実装 → reviewer-light「指摘なし」まで、light は designer を省いて main が brief を直接書き reviewer-light 1 巡で自走する。設計確定後は一時設計文書（plans/{task-slug}.md）を書き出し、/diff-review の plan 照合と /plan-commit の畳み込みコミットにつなぐ。「設計から実装して」「draftsmith で」「設計ファーストで進めて」で発火。--gated で要件確定・設計確定を人間確認に、--full / --light でレーンを強制指定、--no-audit で auditor 独立監査を省略、--no-plan-file で plan ファイル書き出しを省略、--fable で designer を Fable モデルで起動する（無許可の Fable 使用は禁止）。
+description: 設計ファーストで1タスクを要件→設計→監査→実装→light reviewまで進める。full/lightレーンを自動選択し、設計をplanへ残す。既定は従来どおりimplementedで停止する。`--through-review`または`--goal`でcommit gate、draft PR、CI・bot/human review、final verificationまで延長でき、`--from=delivery`なら既存branch/PRのdelivery phaseだけを再開する。「設計から実装して」「設計からPRレビューまで」「このPRの続きをdraftsmithで」で発火。
 user-invocable: true
 ---
 
@@ -11,12 +11,13 @@ user-invocable: true
 
 ## スコープ（持たないものを先に確認）
 
-扱うのは「1 タスク分の 要件 → 設計 → 監査 → 実装 → light レビュー」だけ。
+既定で扱うのは「1 タスク分の 要件 → 設計 → 監査 → 実装 → light レビュー」。
+delivery extensionを明示した場合だけ、同じ1タスクのPR review lifecycleまでを続行する。
 
 - タスク台帳・進捗管理は持たない（claude-code-harness の Plans.md 等の領分）。
   設計確定後に書き出す plan ファイル（下記）は **1 タスクの一時設計文書**であって、
   台帳の代替ではない
-- PR 作成・commit・push はしない（**不変ゲート**。下記）。plan ファイルを
+- 既定goalの`implemented`ではPR作成・commit・pushをしない。後段goalでもplanファイルを
   コミットメッセージへ畳み込む唯一の経路は別スキル /plan-commit（人間確認付き）
 - 複数タスクの一括処理はしない。複数頼まれたら 1 タスクずつ回す
 
@@ -48,6 +49,40 @@ full レーンが Step 4 の末尾、light レーンが Step L2 の末尾。
 **不変ゲート（モードによらず常時人間確認）**: 破壊的操作（ファイル削除・DB 変更・
 既存データの上書き）/ 外部システムへの書き込み / git commit・push。
 自律モードはこれらを免除しない。
+
+## lifecycle routing（opt-in）
+
+Step 0より前に`--from`と`--goal`を解決する。
+
+user-facingの`--from`をhelperの`--entry`へ写像し、決定的なrouting結果を得る。通常runでも
+このread-only commandを使い、既定値を会話だけで再解釈しない。
+
+```bash
+python3 <skill-root>/scripts/delivery_state.py --repo . resolve \
+  [--entry requirements|delivery] [--goal <GOAL>] [--through-review]
+```
+
+- `--from=requirements`（既定）: 従来のfull/light inner loopから開始する。
+- `--from=delivery`: Step 0〜7 / L1〜L5をskipし、現在branch/PRからdelivery phaseを開始する。
+- `--goal=implemented`（既定）: 従来どおりinner loop完了で停止する。
+- 後段goal: `pr_open` / `review_requested` / `review_complete` / `merge_ready`。
+- `--through-review`: `--from=requirements --goal=review_complete`のshortcut。
+
+flagが無くても、依頼が現在PR/branchのCI・review・レビュー依頼・merge-readyへの続行だけを
+求める場合は`delivery`へ正規化する。新しい要件・設計・実装を求める場合は`requirements`。
+
+`--from=delivery`でgoal省略時は`review_complete`を使う。`--from=delivery --goal=implemented`は
+矛盾なので停止する。`--no-plan-file`と後段goalの併用は、設計意図を/plan-commitへ畳み込めない
+ことを開始時に警告する（明示flagなので禁止はしない）。
+
+自然文が新規実装とPR続行の両方に読める場合はrepo状態だけで推測せず確認する。曖昧さを
+隠す`--from=auto`は提供しない。
+
+`--from=delivery`または後段goalを選んだrunだけ
+[delivery-loop](references/delivery-loop.md)を読み、GitHub実態とdelivery stateをreconcileする。
+通常runではreferenceを読まず、現行inner loopのcontext量と挙動を維持する。
+delivery state更新はhelperのlock + `--expect-revision`を必須とし、複数sessionの
+last-write-winsを許さない。
 
 ## レーン判定（Step 0）
 
@@ -250,7 +285,9 @@ plan ファイルを書き出している場合は、続けて更新する: Stat
 「AI が下した判断」節に下記 2 の内容を転記する（コミット履歴に判断記録ごと
 畳み込まれるようにするため）。
 
-以下の構成で報告し、**commit / push はせず**に終える（不変ゲート。コミットするかは人間の判断）:
+goalが`implemented`なら、以下の構成で報告し、**commit / push はせず**に終える。
+後段goalなら同じ4項目をinner-loop checkpointとして報告し、delivery-loopの`implemented` phaseを
+initializeして次のhuman gateまたはwait pointまで続ける。checkpointを最終完了報告と呼ばない。
 
 1. **変更サマリー**: 何がどう変わったか（ファイル一覧 + 要旨）
 2. **AI が下した判断**（自律モードの中核）: Step 1 の要件補完 / Step 4 の確認事項確定 /
@@ -262,8 +299,9 @@ plan ファイルを書き出している場合は、続けて更新する: Stat
 
 差分が大きく目視レビューが重い場合は、`/diff-review` で解説つきレビュー画面を
 生成できることを報告に一言添えてよい（生成するかは人間の判断。勝手に起動しない）。
-plan ファイルがある場合は「コミット時は `/plan-commit` で plan を畳み込める」ことも
-一言添える（コミット自体は不変ゲートのとおり人間の判断）。
+plan ファイルがある場合、goalが`implemented`なら「コミット時は `/plan-commit` でplanを
+畳み込める」と案内する。後段goalならdelivery-loopの`commit_gate`で
+`draftsmith:plan-commit`を起動し、messageとstage対象のhuman previewで停止する。
 
 ## light レーン（5 ステップ）
 
@@ -319,9 +357,9 @@ reviewer-light を 1 回だけかける（full のような「指摘なし」ま
 報告の前に `scripts/audit-ledger.sh promote-check` を一度だけ呼ぶ。
 
 full の Step 7 と同じ構成（変更サマリー / AI が下した判断 / 検証結果 / 残課題・懸念）で
-報告し、commit / push はせずに終える。「AI が下した判断」の先頭にレーン判定の理由を書く。
-plan ファイルの更新（Status: implemented + 判断転記）と /plan-commit の一言案内も
-Step 7 と同様に行う。
+報告する。「AI が下した判断」の先頭にレーン判定の理由を書く。planファイルの更新
+（Status: implemented + 判断転記）もStep 7と同様に行う。goalが`implemented`ならcommit / push
+はせずに終了し、後段goalならinner-loop checkpointとしてdelivery-loopへ主導権を移す。
 
 ### 昇格ルール（light → full）
 
