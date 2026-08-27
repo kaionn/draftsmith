@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-08-27
+
 ### Added
 
 - delivery state schema v2: review thread IDとhead SHAから作る非可逆fingerprint、disposition、CI/設計/実装/人間判断counter、single-driver leaseを追加。v1 stateは読み込み時にv2へ正規化し、次回updateで移行する
@@ -155,7 +157,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/kaionn/draftsmith/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/kaionn/draftsmith/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/kaionn/draftsmith/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/kaionn/draftsmith/compare/v1.8.1...v1.9.0

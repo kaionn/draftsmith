@@ -1,7 +1,7 @@
 {
   "name": "draftsmith",
   "metadata": {
-    "version": "1.11.0",
+    "version": "1.12.0",
     "description": "Self-marketplace for installing draftsmith as a single plugin."
   },
   "owner": {
@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "draftsmith",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "source": "./",
       "description": "Design-first task lifecycle: requirements -> design -> audit -> implementation -> light review, with opt-in delivery through PR review and final verification.",
       "author": {

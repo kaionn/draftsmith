@@ -1,6 +1,6 @@
 {
   "name": "draftsmith",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "Design-first task lifecycle for Claude Code: requirements -> design -> audit -> implementation -> light review, with opt-in delivery through draft PR, CI, bot and human review, and final verification.",
   "author": {
     "name": "kaionn",
