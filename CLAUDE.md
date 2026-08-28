@@ -4,13 +4,21 @@
 
 ## プロジェクト構成
 
-- `skills/draftsmith/SKILL.md` — メインスキル（full / light 2 レーン + opt-in delivery routing）
+- `skills/draftsmith/SKILL.md` — routing・human gate・untrusted input・lane昇格の共通contract
+- `skills/draftsmith/references/full-lane.md` / `light-lane.md` / `artifacts.md` — 選択時だけ読む詳細
 - `skills/draftsmith/agents/openai.yaml` — Codexでの自然言語による暗黙Skill選択を明示的に許可
 - `skills/draftsmith/references/delivery-loop.md` — commit gate からPR review・merge-readyまでのre-entrant lifecycle
 - `skills/draftsmith/scripts/delivery_state.py` — Git metadata配下のdelivery state helper
-- `skills/draftsmith/scripts/delivery_receipt.py` — delivery outcomeのprivacy-minimal receipt
+- `skills/draftsmith/scripts/run_telemetry.py` — opaque IDのv2 run telemetryとimmutable receipt
+- `skills/draftsmith/scripts/receipt_proposals.py` — v1/v2 receipt混在のproposal-only分析
+- `skills/draftsmith/scripts/proposal_lifecycle.py` — human decisionと5-run効果測定
+- `skills/draftsmith/scripts/run_inspect.py` — 読み取り専用doctor / status / run-card
+- `skills/draftsmith/scripts/evidence_packet.py` — clean full-head・AC被覆付きlocal evidence
+- `skills/draftsmith/scripts/review_cockpit.py` — 既存artifactのlocal index
 - `skills/adapters/draftsmith-delivery-driver/SKILL.md` — single-driver lease付き再開adapter
 - `skills/adapters/draftsmith-loop-improve/SKILL.md` — receiptからproposal-only改善案を作るadapter
+- `skills/adapters/draftsmith-inspect/SKILL.md` — doctor / status / run-card入口
+- `skills/adapters/draftsmith-review-cockpit/SKILL.md` — review cockpit入口
 - `skills/diff-review/SKILL.md` — 解説つき差分レビュー画面の生成（/diff-review）
 - `skills/plan-commit/SKILL.md` — plan ファイルの畳み込みコミット（/plan-commit）
 - `skills/verify-report/SKILL.md` — 証跡スクショ付き E2E 検証レポート（/verify-report）

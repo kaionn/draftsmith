@@ -1,101 +1,85 @@
 #!/bin/bash
-# audit-ledger.sh — draftsmith の監査却下 pain 台帳。fail-open・常に exit 0。
-#
-# サブコマンド:
-#   record <category> <reason-summary> <repo>
-#     却下 1 件を ~/.local/state/draftsmith/audit-pains.jsonl へ追記する。
-#     category は enum 必須（SKILL.md 監査 3 層に定義）。
-#   promote-check
-#     category（=fp）ごとの出現回数を数え、3 回以上かつ未昇格のものを
-#     ~/.local/state/draftsmith/constitution.md の自動昇格セクションへ追記する。
-#     昇格済みは promoted.txt に記録し、再実行しても重複追記しない（冪等）。
+# audit-ledger.sh — structured audit pain ledger and proposal-only promotion.
+# record <category> <cause-enum> <target-kind> <repo>
+# promote-check
 
 set -u
 
 state_dir="$HOME/.local/state/draftsmith"
 ledger="$state_dir/audit-pains.jsonl"
-promoted="$state_dir/promoted.txt"
-constitution="$state_dir/constitution.md"
-
-SENTINEL='<!-- draftsmith-auto-promoted -->'
+proposals="$state_dir/improvement-proposals"
 
 VALID_CATEGORIES=(traceability-miss adr-unjustified prediction-divergence anchor-mismatch scope-creep requirement-misread)
+VALID_CAUSES=(missing-coverage unsupported-assumption stale-anchor boundary-expansion ambiguous-requirement verification-gap)
+VALID_TARGETS=(test rubric skill repo-instruction ci driver)
+
+contains() {
+  needle="$1"
+  shift
+  for value in "$@"; do
+    [ "$value" = "$needle" ] && return 0
+  done
+  return 1
+}
 
 cmd="${1:-}"
 
 case "$cmd" in
   record)
     category="${2:-}"
-    reason="${3:-}"
-    repo="${4:-}"
+    cause="${3:-}"
+    target="${4:-}"
+    repo="${5:-}"
 
-    valid=0
-    for c in "${VALID_CATEGORIES[@]}"; do
-      [ "$c" = "$category" ] && valid=1 && break
-    done
-    [ "$valid" -eq 1 ] || exit 0
-    [ -z "$reason" ] && exit 0
+    contains "$category" "${VALID_CATEGORIES[@]}" || exit 0
+    contains "$cause" "${VALID_CAUSES[@]}" || exit 0
+    contains "$target" "${VALID_TARGETS[@]}" || exit 0
     [ -z "$repo" ] && exit 0
 
-    mkdir -p "$state_dir" 2>/dev/null || exit 0
+    [ -L "$state_dir" ] && exit 0
+    [ -L "$ledger" ] && exit 0
+    mkdir -p -m 700 "$state_dir" 2>/dev/null || exit 0
+    chmod 700 "$state_dir" 2>/dev/null
 
-    fp=$(printf '%s' "$category" | shasum -a 256 | cut -c1-16)
-    ts=$(date +%Y-%m-%dT%H:%M:%S)
+    fp=$(printf '%s\0%s\0%s' "$category" "$cause" "$target" | shasum -a 256 | cut -c1-16)
+    ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
     jq -cn --arg ts "$ts" --arg repo "$repo" --arg category "$category" \
-          --arg reason "$reason" --arg fp "$fp" \
-          '{ts:$ts, repo:$repo, category:$category, reason:$reason, fp:$fp}' \
+          --arg cause "$cause" --arg target "$target" --arg fp "$fp" \
+          '{ts:$ts, repo:$repo, category:$category, cause:$cause, target_kind:$target, fp:$fp}' \
           >> "$ledger" 2>/dev/null
+    chmod 600 "$ledger" 2>/dev/null
     ;;
 
   promote-check)
     [ -f "$ledger" ] || exit 0
-    mkdir -p "$state_dir" 2>/dev/null || exit 0
-    touch "$promoted" 2>/dev/null
+    [ -L "$state_dir" ] && exit 0
+    [ -L "$ledger" ] && exit 0
+    [ -L "$proposals" ] && exit 0
+    mkdir -p -m 700 "$proposals" 2>/dev/null || exit 0
+    chmod 700 "$proposals" 2>/dev/null
 
     fps=$(jq -r '.fp' "$ledger" 2>/dev/null | sort -u)
     [ -z "$fps" ] && exit 0
 
     printf '%s\n' "$fps" | while IFS= read -r fp; do
       [ -z "$fp" ] && continue
-      grep -qx "$fp" "$promoted" 2>/dev/null && continue
-
       count=$(jq -r --arg fp "$fp" 'select(.fp == $fp) | .fp' "$ledger" 2>/dev/null | wc -l | tr -d ' ')
-      [ "${count:-0}" -ge 3 ] || continue
+      [ "${count:-0}" -ge 2 ] || continue
 
       category=$(jq -r --arg fp "$fp" 'select(.fp == $fp) | .category' "$ledger" 2>/dev/null | head -1)
-      repos=$(jq -r --arg fp "$fp" 'select(.fp == $fp) | .repo' "$ledger" 2>/dev/null | sort -u | paste -sd, -)
-      now=$(date +%Y-%m-%d)
-
-      if [ ! -f "$constitution" ]; then
-        {
-          echo "# constitution"
-          echo ""
-          echo "$SENTINEL"
-          echo ""
-          echo "> このセクションは draftsmith が自動管理します。"
-          echo "> 監査却下が同一カテゴリで 3 回以上発生した項目が自動追記されます。"
-        } > "$constitution" 2>/dev/null
-      elif ! grep -qF "$SENTINEL" "$constitution" 2>/dev/null; then
-        {
-          echo ""
-          echo "$SENTINEL"
-          echo ""
-          echo "> このセクションは draftsmith が自動管理します。"
-          echo "> 監査却下が同一カテゴリで 3 回以上発生した項目が自動追記されます。"
-        } >> "$constitution" 2>/dev/null
-      fi
-
-      {
-        echo ""
-        echo "## 自動検出: 「${category}」による却下が ${count} 件発生 (${now} 昇格)"
-        echo ""
-        echo "- 対象 repo: ${repos}"
-        echo "- fingerprint: ${fp}"
-        echo "- TODO: 詳細を確認して具体的な設計制約へ書き換える（このスタブは自動生成）"
-      } >> "$constitution" 2>/dev/null
-
-      echo "$fp" >> "$promoted" 2>/dev/null
+      cause=$(jq -r --arg fp "$fp" 'select(.fp == $fp) | .cause' "$ledger" 2>/dev/null | head -1)
+      target=$(jq -r --arg fp "$fp" 'select(.fp == $fp) | .target_kind' "$ledger" 2>/dev/null | head -1)
+      proposal="$proposals/$fp.json"
+      [ -L "$proposal" ] && continue
+      [ -e "$proposal" ] && continue
+      temp="$proposals/.$fp.$$"
+      jq -cn --arg id "$fp" --arg category "$category" --arg cause "$cause" \
+        --arg target "$target" --argjson count "$count" \
+        '{schema_version:1,proposal_id:$id,evidence:{category:$category,cause:$cause,occurrences:$count},target:$target,before:("repeated " + $category + " / " + $cause + " has no deterministic prevention gate"),after:("add a focused " + $target + " gate for this structured cause"),expected_effect:("reduce future occurrences of " + $category + " / " + $cause),falsification:("the next measured runs do not reduce this fingerprint"),status:"proposed"}' \
+        > "$temp" 2>/dev/null || { rm -f "$temp" 2>/dev/null; continue; }
+      chmod 600 "$temp" 2>/dev/null
+      mv "$temp" "$proposal" 2>/dev/null
     done
     ;;
 

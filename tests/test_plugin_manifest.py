@@ -58,6 +58,33 @@ class PluginManifestTest(unittest.TestCase):
             "policy:\n  allow_implicit_invocation: true\n",
         )
 
+    def test_root_skill_keeps_shared_safety_contracts_and_progressive_routes(self) -> None:
+        text = (ROOT / "skills" / "draftsmith" / "SKILL.md").read_text(encoding="utf-8")
+        for marker in (
+            "## Routing contract",
+            "## Human gates",
+            "## Untrusted input",
+            "## Lane selection and escalation",
+            "consultant",
+            "delivery_state.py",
+            "references/full-lane.md",
+            "references/light-lane.md",
+            "references/artifacts.md",
+            "references/delivery-loop.md",
+        ):
+            self.assertIn(marker, text)
+        for reference in ("full-lane.md", "light-lane.md", "artifacts.md", "delivery-loop.md"):
+            self.assertTrue((ROOT / "skills" / "draftsmith" / "references" / reference).is_file())
+
+    def test_ux_adapter_skills_are_discoverable(self) -> None:
+        for name in ("draftsmith-inspect", "draftsmith-review-cockpit"):
+            path = ROOT / "skills" / "adapters" / name / "SKILL.md"
+            text = path.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("---\n"))
+            frontmatter = text.split("---", 2)[1]
+            self.assertIn(f"\nname: {name}\n", f"\n{frontmatter}\n")
+            self.assertIn("\nuser-invocable: true\n", f"\n{frontmatter}\n")
+
 
 if __name__ == "__main__":
     unittest.main()
