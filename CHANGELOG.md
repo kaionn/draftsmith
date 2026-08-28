@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- full laneの`--gated`を理解確認フローへ強化。要件の重要な未決事項を一論点ずつ確認し、設計briefを一言要約・前提・構造・最大5件の根拠付き判断カード・確定要件を含む原文根拠の順に表示して、カードIDによる深掘り後に実装開始を承認できるようにした
+
 ## [1.14.0] - 2026-08-28
 
 ### Added

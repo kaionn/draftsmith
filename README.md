@@ -12,7 +12,7 @@ flowchart LR
     D --> A{Audit<br/>形式 3 層 + 指摘統合}
     AU --> A
     A -- 差し戻し<br/>record to pain ledger --> D
-    A --> G[gated: render brief<br/>as HTML, open & confirm]
+    A --> G[gated: understanding gate<br/>approve or deepen by card ID]
     G --> I[implementer<br/>sonnet / verbatim]
     I --> V[Central verification<br/>format / lint / test]
     V --> L{reviewer-light<br/>checks rubric}
@@ -163,10 +163,18 @@ the PR description. Full verdict coverage is machine-verified by the build scrip
   final report. One escape hatch: an open question that conservative assumptions
   genuinely cannot settle triggers a single targeted human question instead of a guess —
   and if that keeps happening, draftsmith suggests rerunning with `--gated`.
-- **`--gated`**: adds two human checkpoints — requirement sign-off and design sign-off.
-  For the design checkpoint, the designer's 5-part reply is rendered as a self-contained
-  HTML page (`/tmp/draftsmith-brief-{task-slug}.html`) and opened in a browser before the
-  confirmation prompt, so you review a formatted brief instead of raw markdown in chat.
+- **`--gated`**: strengthens the existing two human checkpoints without adding another flag.
+  At the requirements checkpoint, draftsmith asks about one unresolved issue at a time,
+  with a proposed default and one-line rationale, and does not finalize requirements while
+  an important issue remains unresolved. At the design checkpoint, the designer's unchanged
+  5-part reply provides reference-only display material and is projected with the finalized
+  requirements into a self-contained HTML page
+  (`/tmp/draftsmith-brief-{task-slug}.html`) in this order: one-sentence summary, reading
+  prerequisites, structure, zero to five decision cards, and original evidence. Each existing
+  card has an ID, decision, rationale, counterfactual, and a verbatim source reference visible
+  in the evidence section. You either approve the implementation start or request a deeper
+  explanation by card ID; unresolved questions stop implementation. No scored comprehension
+  test or forced restatement is used.
 - **`--fable`**: runs the designer on Fable (the tier above Opus) for this task. Fable is
   never used without explicit user permission — the flag, a go-ahead in conversation, or
   a one-time upgrade proposal draftsmith may make on clearly heavyweight tasks. The chosen
@@ -392,10 +400,14 @@ PR description への転記用サマリー（コピーボタン付き）を含�
   完了報告の「AI が下した判断」節に一覧で出る。逃げ道を一つだけ持つ:
   保守的仮定で埋めきれない未決事項に限り、推測せずその 1 点だけを人間に確認する。
   これが頻発するタスクには `--gated` での仕切り直しを提案する
-- **`--gated`**: 要件確定・設計確定の 2 ゲートが人間確認になる。設計確定ゲートでは
-  designer の出力契約 5 要素を自己完結 HTML（`/tmp/draftsmith-brief-{task-slug}.html`）
-  として描画し、確認プロンプトの前にブラウザで開く。チャット上の生 markdown ではなく
-  整形された brief をレビューできる
+- **`--gated`**: 新しいflagを増やさず、既存の要件確定・設計確定の2ゲートを強化する。
+  要件gateでは重要な未決事項を一度に一論点ずつ、推奨デフォルトと理由付きで確認し、
+  未解消の論点が残る間は要件を確定しない。設計gateではdesignerの出力契約5要素を変えず、
+  要素1の参照専用表示素材と確定要件を自己完結HTML
+  （`/tmp/draftsmith-brief-{task-slug}.html`）へ「一言要約、読む前提、構造、0〜5件の判断カード、
+  原文根拠」の順に機械的に投影する。存在する各カードはID、判断、理由、別案を選んだ場合に
+  壊れること、HTML内で確認できる逐語の原文根拠を持つ。人間は実装開始の承認かカード ID を
+  指定した深掘りを選び、疑問が未解消なら実装へ進まない。理解度の採点や正解文の復唱は要求しない
 - **`--fable`**: designer を Fable（Opus 上位ティア）で起動する。Fable の使用には必ず
   ユーザー許可が要る — フラグ指定・会話での明示許可・重量級タスクでの 1 回だけの
   昇格提案への承認のいずれか。選択モデルは完了報告に記録される。対象は designer のみ
