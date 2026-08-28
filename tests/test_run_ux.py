@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,12 @@ TELEMETRY = SCRIPTS / "run_telemetry.py"
 EVALS = ROOT / "skills" / "draftsmith" / "evals" / "evals.json"
 VALIDATE_EVALS = SCRIPTS / "validate_evals.py"
 SKILL = ROOT / "skills" / "draftsmith" / "SKILL.md"
+FULL_LANE = ROOT / "skills" / "draftsmith" / "references" / "full-lane.md"
+LIGHT_LANE = ROOT / "skills" / "draftsmith" / "references" / "light-lane.md"
+BRIEF_VISUAL = ROOT / "skills" / "draftsmith" / "templates" / "brief-visual.md"
+REPLY_CONTRACT = ROOT / "skills" / "draftsmith" / "templates" / "reply-contract.md"
+README_FILE = ROOT / "README.md"
+CHANGELOG_FILE = ROOT / "CHANGELOG.md"
 
 
 class RunUxTest(unittest.TestCase):
@@ -243,6 +250,98 @@ class RunUxTest(unittest.TestCase):
         symlink = self.invoke(COCKPIT, "--repo", str(self.repo), "--index", str(index), check=False)
         self.assertEqual(symlink.returncode, 2)
         self.assertIn("symlink", symlink.stderr)
+
+    def test_gated_understanding_contract_is_explicit(self) -> None:
+        full_lane = FULL_LANE.read_text(encoding="utf-8")
+        light_lane = LIGHT_LANE.read_text(encoding="utf-8")
+        brief_visual = BRIEF_VISUAL.read_text(encoding="utf-8")
+        reply_contract = REPLY_CONTRACT.read_text(encoding="utf-8")
+        readme = README_FILE.read_text(encoding="utf-8")
+        changelog = CHANGELOG_FILE.read_text(encoding="utf-8")
+
+        for required_contract in (
+            "一度に一論点だけ確認する",
+            "推奨デフォルトと理由1行",
+            "重要な未決事項が残る間は要件確定を宣言せず",
+            "gated-display-material:start; reference-only",
+            "Markdownの箇条書き記号や連番を付けず",
+            "判断素材 D-01",
+            "重要判断が0件であることは正当な出力",
+            "別案を選ぶと何が壊れるか",
+            "逐語引用",
+            "mainは欠けた素材を創作せず",
+            "参照専用であり、implementerへの編集指示ではない",
+            "実装開始を承認する",
+            "カード ID を指定して深掘りする",
+            "未解消の疑問が残る間は Step 5 へ進まない",
+        ):
+            self.assertIn(required_contract, full_lane)
+
+        skeleton = brief_visual.split("## HTML スケルトン", 1)[1]
+        understanding_order = [
+            "<h2>1. 一言要約</h2>",
+            "<h2>2. 読む前提</h2>",
+            "<h2>3. 構造</h2>",
+            "<h2>4. 判断カード</h2>",
+            "<h2>5. 原文根拠</h2>",
+        ]
+        positions = [skeleton.index(marker) for marker in understanding_order]
+        self.assertEqual(positions, sorted(positions))
+
+        self.assertIn("0〜5件", brief_visual)
+        self.assertIn('<p class="empty">重要判断なし</p>', brief_visual)
+        for card_field in (
+            "判断 ID",
+            "何を決めたか",
+            "なぜか",
+            "別案を選ぶと何が壊れるか",
+            "原文根拠",
+        ):
+            self.assertIn(card_field, brief_visual)
+
+        self.assertIn("<pre>{{ reading_prerequisites_body }}</pre>", skeleton)
+        self.assertNotIn("reading_prerequisite_items", brief_visual)
+        self.assertIn("行ごとのwrapper生成や記号の追加は行わない", brief_visual)
+
+        self.assertIn("<summary>確定要件（原文）</summary>", skeleton)
+        self.assertIn("<pre>{{ requirements_body }}</pre>", skeleton)
+        for original_element in (
+            "<pre>{{ brief_body }}</pre>",
+            "<pre>{{ open_questions_body }}</pre>",
+            "<pre>{{ broken_assumptions_body }}</pre>",
+            "<pre>{{ traceability_body }}</pre>",
+            "<pre>{{ mini_adr_body }}</pre>",
+        ):
+            self.assertIn(original_element, skeleton)
+
+        for escaped_character in ("&amp;", "&lt;", "&gt;", "&quot;", "&#39;"):
+            self.assertIn(escaped_character, brief_visual)
+        self.assertIn('<article class="decision-card" id="{{ decision_id }}">', brief_visual)
+        self.assertIn("ソース値をHTML断片として挿入しない", brief_visual)
+
+        self.assertIn("Content-Security-Policy", skeleton)
+        self.assertNotIn("<script", skeleton.lower())
+        self.assertNotIn("http://", skeleton)
+        self.assertNotIn("https://", skeleton)
+
+        self.assertIn("自律モードでは既存挙動維持", full_lane)
+        self.assertNotIn("理解確認gate", light_lane)
+        self.assertEqual(
+            re.findall(r"^## 要素 ([1-5]):", reply_contract, flags=re.MULTILINE),
+            ["1", "2", "3", "4", "5"],
+        )
+        for forbidden_dependency in ("explain-visually", "grill-with-docs"):
+            self.assertNotIn(forbidden_dependency, full_lane)
+            self.assertNotIn(forbidden_dependency, brief_visual)
+
+        self.assertIn("one unresolved issue at a time", readme)
+        self.assertRegex(readme, r"request a deeper\s+explanation by card ID")
+        self.assertIn("重要な未決事項を一度に一論点ずつ", readme)
+        self.assertIn("カード ID を", readme)
+
+        unreleased = changelog.split("## [Unreleased]", 1)[1].split("## [1.14.0]", 1)[0]
+        self.assertIn("理解確認フロー", unreleased)
+        self.assertIn("`--gated`", unreleased)
 
     def test_behavioral_contract_validator_has_red_probes(self) -> None:
         valid = self.invoke(VALIDATE_EVALS, "--evals", str(EVALS), "--skill", str(SKILL))
