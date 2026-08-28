@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-08-29
+
 ### Changed
 
 - full laneの`--gated`を理解確認フローへ強化。要件の重要な未決事項を一論点ずつ確認し、設計briefを一言要約・前提・構造・最大5件の根拠付き判断カード・確定要件を含む原文根拠の順に表示して、カードIDによる深掘り後に実装開始を承認できるようにした
@@ -189,7 +191,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/kaionn/draftsmith/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/kaionn/draftsmith/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/kaionn/draftsmith/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/kaionn/draftsmith/compare/v1.12.0...v1.13.0

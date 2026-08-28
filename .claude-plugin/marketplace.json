@@ -1,7 +1,7 @@
 {
   "name": "draftsmith",
   "metadata": {
-    "version": "1.14.0",
+    "version": "1.15.0",
     "description": "Self-marketplace for installing draftsmith as a single plugin."
   },
   "owner": {
@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "draftsmith",
-      "version": "1.14.0",
+      "version": "1.15.0",
       "source": "./",
       "description": "Design-first lifecycle for Claude Code and Codex, with natural-language routing from implementation through PR delivery.",
       "author": {
