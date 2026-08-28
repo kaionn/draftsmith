@@ -101,3 +101,25 @@ gh workflow run release.yml
 - 機能追加・変更・修正は `[Unreleased]` セクションに都度追記する
 - リリース時に `release.sh` が `[Unreleased]` を新バージョンに昇格する
 - 昇格後のセクションが GitHub Release のノートとしてそのまま公開される（`scripts/changelog-section.sh` が抽出）。`[Unreleased]` への追記は「そのまま公開文になる」前提で書く
+
+## スクリプト検証で subshell の `set -e` を当てにしない
+
+`( set -e; cmd1; cmd2 ) && echo ok` の形で検証すると、subshell が AND-OR list の左辺にあるため **subshell 内の `set -e` が無効化される**。cmd1 が `exit 1` でも cmd2 が実行され、subshell の終了ステータスは cmd2 のものになるので、失敗が success として通る。
+
+実測（bash / zsh 共通）:
+
+| 形 | 挙動 |
+|---|---|
+| `( set -e; ./fail.sh ) && echo ok` | 短絡する（単一コマンドなら問題は起きない） |
+| `( set -e; ./fail.sh; echo x ) && echo ok` | `set -e` が効かず `x` と `ok` が両方出る |
+| `( set -e; ./fail.sh; echo x )` | `set -e` が効く（exit=1、`x` は出ない） |
+
+検証は GHA の `run:` と同じくファイル経由で実行し、終了ステータスを明示的に読む。
+
+```bash
+cat > /tmp/verify.sh <<'SH'
+set -e
+./scripts/changelog-section.sh v1.0.0
+SH
+bash /tmp/verify.sh; echo "exit=$?"
+```
