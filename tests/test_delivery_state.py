@@ -13,7 +13,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skills" / "draftsmith" / "scripts" / "delivery_state.py"
-RECEIPT_SCRIPT = ROOT / "skills" / "draftsmith" / "scripts" / "delivery_receipt.py"
+TELEMETRY_SCRIPT = ROOT / "skills" / "draftsmith" / "scripts" / "run_telemetry.py"
+RECEIPT_COMPAT = ROOT / "skills" / "draftsmith" / "scripts" / "delivery_receipt.py"
 
 
 class DeliveryStateTest(unittest.TestCase):
@@ -83,6 +84,7 @@ class DeliveryStateTest(unittest.TestCase):
         self.assertEqual(payload["revision"], 0)
         self.assertTrue(path.is_file())
         self.assertIn(str(self.repo / ".git" / "draftsmith-delivery"), str(path))
+        self.assertEqual(stat.S_IMODE(path.parent.stat().st_mode), 0o700)
         self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
         self.assertEqual(self.git("status", "--porcelain").stdout, "")
 
@@ -330,26 +332,97 @@ class DeliveryStateTest(unittest.TestCase):
             "--pr-number",
             "42",
         )
-        event = self.state(
-            "record-event",
-            "--expect-revision",
-            "0",
-            "--event",
-            "ci_failure",
+        started = subprocess.run(
+            [
+                sys.executable,
+                str(TELEMETRY_SCRIPT),
+                "--repo",
+                str(self.repo),
+                "start",
+                "--lane",
+                "full",
+                "--entry",
+                "delivery",
+                "--goal",
+                "review_complete",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
         )
-        self.assertEqual(json.loads(event.stdout)["metrics"]["ci_failures"], 1)
+        run_id = json.loads(started.stdout)["run_id"]
+        event_result = subprocess.run(
+            [
+                sys.executable,
+                str(TELEMETRY_SCRIPT),
+                "--repo",
+                str(self.repo),
+                "event",
+                "--run-id",
+                run_id,
+                "--expect-revision",
+                "0",
+                "--event",
+                "ci_failure",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        revision = json.loads(event_result.stdout)["revision"]
         receipt_result = subprocess.run(
-            [sys.executable, str(RECEIPT_SCRIPT), "--repo", str(self.repo)],
+            [
+                sys.executable,
+                str(TELEMETRY_SCRIPT),
+                "--repo",
+                str(self.repo),
+                "finish",
+                "--run-id",
+                run_id,
+                "--final-phase",
+                "review_complete",
+                "--delivery-key",
+                Path(self.state("path").stdout.strip()).stem,
+                "--expect-revision",
+                str(revision),
+            ],
             check=True,
             capture_output=True,
             text=True,
         )
         receipt_path = Path(receipt_result.stdout.strip())
         receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-        self.assertEqual(receipt["metrics"]["ci_failures"], 1)
+        self.assertEqual(receipt["counters"]["ci_failures"], 1)
         self.assertNotIn("handled_reviews", receipt)
         self.assertNotIn("authorization", receipt)
         self.assertEqual(stat.S_IMODE(receipt_path.stat().st_mode), 0o600)
+
+    def test_legacy_delivery_receipt_cli_creates_private_v2_receipt(self) -> None:
+        self.state(
+            "init",
+            "--entry",
+            "delivery",
+            "--goal",
+            "review_complete",
+            "--phase",
+            "review_complete",
+            "--pr-number",
+            "42",
+        )
+        self.state("record-event", "--expect-revision", "0", "--event", "ci_failure")
+        result = subprocess.run(
+            [sys.executable, str(RECEIPT_COMPAT), "--repo", str(self.repo)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        receipt = json.loads(Path(result.stdout.strip()).read_text(encoding="utf-8"))
+        self.assertEqual(receipt["schema_version"], 2)
+        self.assertEqual(receipt["lane"], "unknown")
+        self.assertEqual(receipt["final_phase"], "review_complete")
+        self.assertEqual(receipt["delivery_counters"]["ci_failures"], 1)
+        self.assertNotIn("pr_number", receipt)
+        self.assertNotIn("key", receipt)
 
     def test_delivery_documentation_matches_state_enums(self) -> None:
         state = runpy.run_path(str(SCRIPT))

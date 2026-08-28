@@ -16,6 +16,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from git_storage import StorageError, metadata_dir
+
 
 SCHEMA_VERSION = 2
 ENTRIES = ("requirements", "delivery")
@@ -89,7 +95,7 @@ FORWARD = {
 SHA_RE = re.compile(r"[0-9a-f]{7,64}")
 FINGERPRINT_RE = re.compile(r"[0-9a-f]{64}")
 DISPOSITIONS = ("implementation", "design", "question", "no_action", "human_decision")
-METRIC_EVENTS = ("ci_failure", "implementation_finding", "design_finding", "human_decision")
+METRIC_EVENTS = ("ci_failure",)
 DRIVER_KINDS = ("manual", "runtime_monitor", "github_event")
 METRIC_DEFAULTS = {
     "ci_failures": 0,
@@ -147,9 +153,11 @@ def resolve(repo_arg: str, key_arg: str | None) -> tuple[Path, str, str, Path]:
     key = key_arg or safe_key(branch)
     if not re.fullmatch(r"[a-zA-Z0-9._-]{1,96}", key):
         raise StateError("key must contain only letters, digits, dot, underscore, or hyphen")
-    raw_dir = Path(run_git(root, "rev-parse", "--git-path", "draftsmith-delivery"))
-    state_dir = raw_dir if raw_dir.is_absolute() else root / raw_dir
-    return root, branch, key, state_dir.resolve() / f"{key}.json"
+    try:
+        state_dir = metadata_dir(root, "draftsmith-delivery", create=False)
+    except StorageError as exc:
+        raise StateError(str(exc)) from exc
+    return root, branch, key, state_dir / f"{key}.json"
 
 
 def validate_state(state: dict[str, Any]) -> None:
@@ -265,7 +273,8 @@ def load(path: Path) -> dict[str, Any]:
 
 def write_atomic(path: Path, state: dict[str, Any]) -> None:
     validate_state(state)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(path.parent, 0o700)
     handle = tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", delete=False
     )
@@ -287,7 +296,8 @@ def write_atomic(path: Path, state: dict[str, Any]) -> None:
 def state_lock(path: Path):
     """Take a non-blocking cross-process lock next to the state file."""
     lock_path = path.with_suffix(f"{path.suffix}.lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(lock_path.parent, 0o700)
     with lock_path.open("a+b") as handle:
         os.chmod(lock_path, 0o600)
         if os.name == "nt":
@@ -448,13 +458,12 @@ def command_record_event(args: argparse.Namespace, path: Path) -> None:
     with state_lock(path):
         state = load(path)
         require_revision(state, args.expect_revision)
-        field = {
-            "ci_failure": "ci_failures",
-            "implementation_finding": "implementation_findings",
-            "design_finding": "design_findings",
-            "human_decision": "human_decisions",
-        }[args.event]
-        state["metrics"][field] += 1
+        if args.event != "ci_failure":
+            raise StateError(
+                "finding and decision counters are derived by record-review; "
+                "record-event only accepts ci_failure"
+            )
+        state["metrics"]["ci_failures"] += 1
         state["revision"] += 1
         state["updated_at"] = utc_now()
         write_atomic(path, state)

@@ -40,7 +40,8 @@ python3 <skill-root>/scripts/delivery_state.py --repo . resolve --entry delivery
    unresolved thread、merge stateを実測する。通知や前回報告だけでphaseを進めない。
 3. `plans/*.md`を確認する。`Status: implemented`が1件なら対象候補。複数またはdirty差分と
    対応しない場合は勝手に選ばず確認する。
-4. state helperをinitまたはvalidateする。
+4. state helperをinitまたはvalidateする。`delivery_state`だけをworkflow stateの正本とし、
+   別のlifecycle stateを持つSkillと同じrunで併用しない。
 
 ```bash
 # requirementsからinner loopを完了した直後
@@ -168,7 +169,7 @@ driver利用時は`claim-driver`でleaseを取得し、bounded advance後に`rel
 
 repo固有verification、PR作成、review requestのSkillが利用可能なら再利用する。例:
 
-- `pr-verify-report` / `verify-harness`
+- `pr-verify-report` / `verify-harness`（before証跡は対象worktreeをstashせず専用worktreeで取得）
 - `code-flow:ship-pr`
 - `/pr-followup` / `/watch-ci`またはruntime対応Skill
 - 組織固有のreview-request Skill
@@ -189,6 +190,17 @@ cycle数、optimistic concurrency用revision、timestampだけ。次は保存し
 
 各runの最後にphase、実測、外部変更、wait/gate、未検証項目を区別して報告する。
 
-`review_complete`、`merge_ready`、`done`到達時は`delivery_receipt.py`でprivacy-minimal receiptを
-Git metadata配下へ生成できる。receiptはcounter、cycle、elapsed time、goal/final phaseだけを持ち、
-review fingerprint一覧や本文を含まない。複数receiptの改善提案は`draftsmith-loop-improve`へ渡す。
+到達goalの終端では`run_telemetry.py finish --final-phase <phase> --delivery-key <key>`で
+privacy-minimal v2 receiptをGit metadataへ
+生成する。receiptはopaque ID、enum、counter、duration、timestampだけを持ち、branch key、repo、
+task、PR番号、review fingerprint、本文、command、authorizationを含まない。v1 receiptは変更せず
+read-only入力として改善分析できる。複数receiptのproposal-only分析は
+`draftsmith-loop-improve`へ渡す。
+
+goalとfinish phaseの対応は`pr_open → pr_open`、`review_requested → wait_human_review`、
+`review_complete → review_complete`、`merge_ready → merge_ready`、`merged → done`。途中で継続不能なら
+`blocked`を使う。別phaseを指定したfinishはhelperが拒否する。
+
+最新headのローカル証跡は`evidence_packet.py`で作る。clean worktree、完全OID、caller-provided PR
+head一致、全ACの結果またはNot coveredが揃わなければ生成しない。外部投稿は別human gateとし、
+利用可能なら組織固有の`pr-verify-report`へローカルpacketだけを渡す。

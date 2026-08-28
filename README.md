@@ -7,7 +7,7 @@ One task in, reviewed change out by default; opt in to delivery through reviewed
 
 ```mermaid
 flowchart LR
-    R[Requirements<br/>要件正規化] --> D[designer<br/>opus / read-only<br/>reads constitution.md]
+    R[Requirements<br/>要件正規化] --> D[designer<br/>opus / read-only]
     D --> AU[auditor<br/>独立監査 / read-only]
     D --> A{Audit<br/>形式 3 層 + 指摘統合}
     AU --> A
@@ -47,9 +47,9 @@ splits the loop into three roles with **structurally enforced boundaries**:
   (1) traceability against every acceptance criterion, (2) that ADRs actually cite the
   requirements, (3) divergence between prediction and result — a cheap tripwire against
   rubber-stamp auditing. Overruling the designer requires a written reason and alternative.
-  Every rejection is recorded to a per-category **pain ledger**; once a category hits 3
-  rejections it auto-promotes into `constitution.md`, which designer reads on every future
-  run — recurring audit friction becomes a standing constraint instead of repeating itself.
+  Every rejection is recorded to a structured **pain ledger**. Repeated category/cause/target
+  fingerprints produce reviewable proposals with evidence and falsification criteria; they
+  never rewrite a Skill, Rule, or `constitution.md` automatically.
 - **auditor** (opus, read-only) — a fresh-context semantic audit of the designer's brief,
   run in the full lane by default (`--no-audit` to skip). The main session's 3-layer audit
   is formal; the auditor checks *meaning* across six lenses (seams, bug seeds, conventions,
@@ -264,9 +264,9 @@ designer/implementer split plus an auditable reply contract, at single-task gran
   監査では (1) 全受け入れ基準とのトレーサビリティ照合 (2) ADR の要件引用チェック
   (3) 予測と成果物の乖離検査、の 3 層を回す。第 3 層は監査のゴム印化を検知する安価な
   仕掛け。designer の提案を覆すときは理由 + 代替案の明文化が必須。却下はカテゴリ別に
-  **pain 台帳**へ記録され、同一カテゴリが 3 回溜まると `constitution.md` へ自動昇格する。
-  designer は毎回の起動時にこれを読むので、繰り返す監査摩擦がその場限りで消えず
-  恒常的な制約として定着する
+  **pain 台帳**へcategory・cause enum・target kindで記録される。同一fingerprintが2件以上なら、
+  根拠・変更先・before/after・期待効果・反証方法を持つproposalになる。Skill、Rule、
+  `constitution.md`を自動変更せず、人間が採否を決める
 - **auditor**（opus / read-only）— designer の brief をフレッシュコンテキストで意味的に
   監査する独立監査層。full レーンで既定実行（`--no-audit` で省略可）。main の 3 層は
   形式の検査なので、意味の検査（接合面・バグの芽・規約準拠・要件充足の中身・設計の
@@ -327,6 +327,25 @@ PR feedbackは実行前に分類する。実装指摘はtargeted implementer + r
 停止する。delivery stateはGit metadata配下に保存され、working treeを汚さずCI/review待ちを
 別runから再開できる。cross-process lockとoptimistic `revision`照合により、Claude/Codexの
 古いstate更新を拒否する。
+
+開始前診断と再開状況は読み取り専用で確認できる。
+
+```bash
+python3 skills/draftsmith/scripts/run_inspect.py --repo . doctor
+python3 skills/draftsmith/scripts/run_inspect.py --repo . status
+python3 skills/draftsmith/scripts/run_inspect.py --repo . run-card --lane full
+```
+
+全runはopaque IDのv2 telemetryを開始・event・finishで記録できる。receiptはbranch、repo、task、
+PR番号、本文、command、authorizationを持たず、`implemented`も終端として記録する。v1 receiptは
+上書きせずread-onlyで改善分析へ使う。ローカルevidence packetはclean worktree、完全OID、PR head
+一致、全AC coverageを必須とし、review cockpitはplan / rubric / diff-review / verify-report /
+evidenceへの索引だけを生成する。外部投稿は別のhuman gateである。
+
+反復signalのproposalは人間が採否を決める。採用後は5件の新しいreceiptで発生率を比較し、下がらない
+場合だけ撤回候補として提示する。Skill、Rule、constitutionの適用・撤回を自動実行しない。
+既存の`plan`成果物は一次入力として再利用し、`diff-review`、`verify-report`、`plan-commit`は各成果物の
+正本として呼び出す。別のlifecycle stateを持つSkillはdraftsmith deliveryと同じrunで併用しない。
 
 ```
 /diff-review                 # 未コミット差分の解説つきレビュー画面
@@ -410,7 +429,7 @@ PR description への転記用サマリー（コピーボタン付き）を含�
 ```
 .claude-plugin/plugin.json      # プラグイン manifest
 .claude-plugin/marketplace.json # self-marketplace（単一リポで配布）
-agents/designer.md              # 一次設計（読み取り専用・constitution.md 読込）
+agents/designer.md              # 一次設計（読み取り専用）
 agents/auditor.md               # 独立設計監査（読み取り専用・full レーン既定）
 agents/consultant.md            # 覆し判断の独立第二意見（読み取り専用・on-demand）
 agents/implementer.md           # 逐語適用（設計判断なし）
@@ -418,13 +437,14 @@ agents/reviewer-light.md        # 軽量レビュー（定型出力・rubric 照
 scripts/audit-ledger.sh         # 監査 pain 台帳（record / promote-check）
 agents/diff-analyzer.md         # 差分の意味グルーピング（読み取り専用）
 agents/evidence-reviewer.md     # 証跡スクショの独立判定（読み取り専用・vision）
-skills/draftsmith/SKILL.md      # メインフロー（7 ステップ）
+skills/draftsmith/SKILL.md      # routing・不変条件・段階ロード
 skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR・plan ファイル・rubric・brief-visual
-skills/draftsmith/references/   # opt-in delivery / PR review lifecycle
-skills/draftsmith/scripts/      # delivery state helper
+skills/draftsmith/references/   # full/light/artifact/deliveryの条件付き手順
+skills/draftsmith/scripts/      # state・telemetry・inspect・evidence・cockpit helper
 skills/adapters/draftsmith-delivery-driver/SKILL.md # single-driver lease付きの再開adapter
 skills/adapters/draftsmith-loop-improve/SKILL.md # receiptからproposal-only改善
-skills/draftsmith/scripts/delivery_receipt.py # privacy-minimal delivery計測
+skills/adapters/draftsmith-inspect/SKILL.md # doctor / status / run-card
+skills/adapters/draftsmith-review-cockpit/SKILL.md # local artifact索引
 skills/diff-review/SKILL.md     # 解説つき差分レビュー画面（/diff-review）
 skills/diff-review/scripts/     # diff 分割・HTML ビルド（Python stdlib のみ）
 skills/diff-review/templates/   # レビュー画面テンプレート

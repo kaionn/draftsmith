@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-08-28
+
+### Added
+
+- 自然言語routing、lane、human gate、再開、untrusted inputを固定するbehavioral evalとcontract validatorを追加
+- `implemented`を含む全run向けに、opaque ID・enum・counter・duration・timestampだけを保存するv2 telemetry、読み取り専用doctor/status/run-card、clean full-head evidence packet、既存成果物だけを束ねるreview cockpitを追加
+- v1/v2 receiptを混在のまま読み、2件以上で反復したsignalだけをproposalにするread-only改善helperを追加
+- 人間が採用・却下したproposalを記録し、採用後5 runの発生率から撤回候補を判定するlifecycle helperを追加
+
+### Changed
+
+- root Skillをroutingと不変条件へ縮め、full/light/artifact/delivery詳細を条件付きreferenceへ分割
+- audit painのfingerprintをcategory・structured cause・target kindへ変更し、constitution自動追記を廃止してproposal-onlyに変更
+- before画面証跡はstashを使わず、`pr-verify-report`または専用worktreeで取得する規範へ変更
+- diff review、E2E判定、commitは既存の`diff-review`、`verify-report`、`plan-commit`を正本として再利用し、別のlifecycle stateを持つSkillはdraftsmith deliveryと併用しない
+
 ## [1.13.1] - 2026-08-27
 
 ### Fixed
@@ -169,7 +185,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.13.1...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/kaionn/draftsmith/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/kaionn/draftsmith/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/kaionn/draftsmith/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/kaionn/draftsmith/compare/v1.11.0...v1.12.0

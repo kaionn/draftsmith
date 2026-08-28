@@ -1,56 +1,56 @@
 #!/usr/bin/env python3
-"""Create a privacy-minimal delivery receipt from validated draftsmith state."""
+"""Compatibility entrypoint for legacy delivery receipt calls and v2 run telemetry."""
 
 from __future__ import annotations
 
 import argparse
-import json
-import os
-import tempfile
-from datetime import datetime, timezone
-from pathlib import Path
+import sys
 
-from delivery_state import load, parse_timestamp, resolve, run_git
+from delivery_state import StateError, load, resolve
+from git_storage import StorageError
+from run_telemetry import (
+    TelemetryError,
+    finish,
+    load_json,
+    main,
+    paths,
+    start,
+    validate_run,
+)
 
 
-def main() -> int:
+def legacy_main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default=".")
-    parser.add_argument("--key")
     args = parser.parse_args()
-    root, _branch, key, state_path = resolve(args.repo, args.key)
-    state = load(state_path)
-    if state["phase"] not in {"review_complete", "merge_ready", "done"}:
-        parser.error("receipt requires review_complete, merge_ready, or done state")
-    elapsed = max(
-        0,
-        int((parse_timestamp(state["updated_at"]) - parse_timestamp(state["created_at"])).total_seconds()),
-    )
-    receipt = {
-        "schema_version": 1,
-        "key": key,
-        "goal": state["goal"],
-        "final_phase": state["phase"],
-        "pr_number": state["pr_number"],
-        "review_cycles": state["review_cycles"],
-        "handled_review_count": len(state["handled_reviews"]),
-        "metrics": state["metrics"],
-        "elapsed_seconds": elapsed,
-        "completed_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
-    }
-    raw_dir = Path(run_git(root, "rev-parse", "--git-path", "draftsmith-delivery-receipts"))
-    receipt_dir = raw_dir if raw_dir.is_absolute() else root / raw_dir
-    output = receipt_dir.resolve() / f"{key}.json"
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output.parent, delete=False) as handle:
-        json.dump(receipt, handle, indent=2, sort_keys=True)
-        handle.write("\n")
-        temp = Path(handle.name)
-    os.chmod(temp, 0o600)
-    os.replace(temp, output)
-    print(output)
+    try:
+        _root, _branch, key, state_path = resolve(args.repo, None)
+        state = load(state_path)
+        runs, _receipts = paths(args.repo, create=False)
+        active = sorted(runs.glob("*.json")) if runs.is_dir() else []
+        if len(active) > 1:
+            raise TelemetryError("multiple active telemetry runs exist in this worktree")
+        if active:
+            run_path = active[0]
+            run = load_json(run_path)
+            validate_run(run)
+            if (run["entry"], run["goal"]) != (state["entry"], state["goal"]):
+                raise TelemetryError("active telemetry run does not match delivery state")
+        else:
+            run_path = start(args.repo, "unknown", state["entry"], state["goal"])
+            run = load_json(run_path)
+        receipt, warning = finish(
+            args.repo, run["run_id"], state["phase"], key, run["revision"]
+        )
+        print(receipt)
+        if warning:
+            print(warning, file=sys.stderr)
+    except (StateError, StorageError, TelemetryError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    commands = {"start", "event", "finish"}
+    raise SystemExit(main() if any(item in commands for item in sys.argv[1:]) else legacy_main())
