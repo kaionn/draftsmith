@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.15.0] - 2026-08-29
+### Changed
+
+- lane判定を「変更の広がり」「設計判断の有無」の2軸へ変更し、「迷えばfull」を廃止。小さいが判断を要する変更にはdesignerを起動せず、mainのbriefを独立auditorが1巡監査する`light + 独立audit`を追加した（laneは`light`として記録し、`auditor_round` eventで観測できる）
+- `delivery × implemented`が拒否された依頼を黙って`requirements`へ落とさず、既存差分・既存PRの継続とnew実装を実体で分ける規範を明示。再マップしたrunのlaneをentry再マップ理由でfullへ倒さないようにした
+- auditorとreviewer-lightへ渡す入力から、監査・レビューの判断に使われない項目を除いた。auditorには要件の項目8「参照情報」とmainの反証可能な予測を渡さず、reviewer-lightへはrubricを受け入れ基準の正本として渡して要件とrubricの二重渡しをやめた
+- designerとreviewer-lightの役割境界を構造的な制約として明文化。成果物をBashで書き出さない、Bashは読み取り専用調査に限る、調査範囲を対象repoと要件書の参照先に限る、returnを出力契約だけで構成する、を追加した
+- root Skillとdelivery-loop referenceで重複していたentry/goal正規化とreceipt制約の記述を、rootを正本とする参照へ置き換えた
 
 ### Changed
 

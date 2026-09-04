@@ -39,21 +39,38 @@ python3 <skill-root>/scripts/delivery_state.py --repo . resolve \
 ```
 
 `delivery`でgoal省略時は`review_complete`、それ以外は`implemented`。`delivery × implemented`は
-拒否する。新規実装とPR続行のどちらにも読める場合だけ確認する。goal指定は外部操作のstanding
-authorizationではない。
+helperが拒否する。拒否された依頼を黙って`requirements`へ落とさず実体で分ける。既存差分・既存PRの
+継続なら`delivery`のままgoalを後段（既定は`review_complete`）へ引き上げ、新規実装だと確定した時だけ
+`requirements × implemented`へ再マップし、再マップした事実をrun cardで示す。どちらとも読めない場合
+だけ確認する。再マップしたrunのlaneも下の2軸だけで判定し、entry再マップを理由にfullへ倒さない。
+goal指定は外部操作のstanding authorizationではない。
 
 ## Lane selection and escalation
 
-lane判定は`requirements` entryだけで行う。lightは「方針が一意」「変更アンカーが調査不要で自明」
-「1〜3ファイルで構造を変えない」の
-3条件をすべて満たす場合だけ選ぶ。1つでも欠けるか迷えばfull。`--full` / `--light`は明示指定を
-優先する。
+lane判定は`requirements` entryだけで行い、変更の広がり（軸A）と設計判断の有無（軸B）を別々に
+評価する。片方が重いだけでfullへ倒さない。
+
+- 軸A: 「1〜3ファイル」「既存構造・公開契約・データモデル・依存方向を変えない」「変更アンカーが
+  調査不要で自明」をすべて満たせば`小`。1つでも欠けるか迷えば`大`。
+- 軸B: 実装方針が一意なら`一意`。方針が複数ありえて比較が要るなら`要判断`。
+
+| | 軸B=一意 | 軸B=要判断 |
+|---|---|---|
+| 軸A=小 | light | light + 独立audit |
+| 軸A=大 | full | full |
+
+`light + 独立audit`はdesignerを起動せず、mainが対象ファイルを実際に読んで書いたbriefを独立auditorが
+1巡監査するlightの変種。laneは`light`として記録し、auditor起動を`auditor_round` eventで残す。
+`--full` / `--light`は明示指定を優先するが、`--light`でも軸Bが`要判断`なら独立auditは省略しない
+（省略は`--no-audit`だけ）。
 
 - fullを選んだら[full lane](references/full-lane.md)だけを読む。
-- lightを選んだら[light lane](references/light-lane.md)だけを読む。
+- light（独立auditの有無を問わない）を選んだら[light lane](references/light-lane.md)だけを読む。
 - `delivery` entryはlane=`unknown`とし、full/lightを読まず[delivery loop](references/delivery-loop.md)
   だけを読む。
-- light中に調査、構造的不一致、設計判断を要する指摘が出たらfullへ一方向に昇格する。
+- light中に軸Aが崩れたら（調査が必要、構造的不一致、1〜3ファイルを超える波及）fullへ一方向に
+  昇格する。軸Bだけが変わった場合は`light + 独立audit`へ切り替え、auditor highが設計の作り直しを
+  要求する場合にfullへ昇格する。
 - 成果物を作る時だけ[artifacts](references/artifacts.md)を読む。
 - `delivery`または`implemented`より後のgoalだけ[delivery loop](references/delivery-loop.md)を読む。
 
@@ -65,8 +82,8 @@ lane判定は`requirements` entryだけで行う。lightは「方針が一意」
 この基準でも結果が実質的に変わる穴だけを1点確認する。`--gated`では要件確定とfull設計確定を
 人間へ確認するが、下記Human gatesはどちらのモードでも維持する。
 
-`--no-audit`はfullの独立auditorだけ、`--no-plan-file`は一時planだけを省略する。後段goalと
-`--no-plan-file`を併用する場合は、設計意図を`draftsmith:plan-commit`へ畳み込めないと開始前に
+`--no-audit`は独立auditorだけ（fullと`light + 独立audit`の両方）、`--no-plan-file`は一時planだけを
+省略する。後段goalと`--no-plan-file`を併用する場合は、設計意図を`draftsmith:plan-commit`へ畳み込めないと開始前に
 警告する。`--fable`はユーザーが明示許可した場合だけdesignerへ適用し、他agentへ広げない。
 
 ## Run initialization and observability
@@ -124,7 +141,8 @@ rubricで裏を取り、必要な外部変更はHuman gatesへ戻す。
 
 ## Design independence and consultant
 
-fullではdesigner、auditor、implementer、reviewer-lightを役割分離する。designer提案を覆す時、
+fullではdesigner、auditor、implementer、reviewer-lightを役割分離する。`light + 独立audit`では
+designerを省く代わりに、mainが書いたbriefに対する独立auditorの監査を省かない。designer提案を覆す時、
 auditor highを棄却する時、軽微修正か設計差戻しか迷う時は、決定前に独立した`consultant`へ
 諮問する。棄却理由と代替案、consultant推奨の採否を記録する。agent起動を宣言したturn内で実際に
 起動し、宣言だけで終了しない。
@@ -139,9 +157,8 @@ scripts/audit-ledger.sh promote-check
 ```
 
 同一fingerprintが2件以上ならproposalを生成するが、Skill、Rule、constitutionを自動変更しない。
-proposalは根拠、変更先、before/after、期待効果、反証方法を人間へ提示する。人間が適用を承認した
-場合だけ採用状態を記録し、5件の新しいreceipt後に発生率を比較する。改善しなければ撤回候補として
-提示するが、適用も撤回も自動実行しない。
+適用も撤回も人間の承認を要する。proposalの提示形式と適用後の効果測定は`draftsmith-loop-improve`を
+正本とし、ここへ複製しない。
 
 ## Completion
 

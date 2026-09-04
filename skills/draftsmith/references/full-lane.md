@@ -65,7 +65,10 @@ designer以外へこの選択を広げない。
 
 ## Step 3: 独立監査
 
-要件全文とdesigner return全文を独立auditorへ渡す（`--no-audit`時だけ省略）。同時にmainが次を行う。
+designer return全文と、確定要件の項目1〜7（背景・目的・スコープ・スコープ外・非機能要件・
+受け入れ基準・未決事項）を独立auditorへ渡す（`--no-audit`時だけ省略）。項目8「参照情報」と
+反証可能な予測は渡さない。前者はdesignerの調査起点であり監査の判断に使われず、後者は下の3.で
+mainだけが使う検査軸で、渡すと独立監査が予測へアンカーする。同時にmainが次を行う。
 
 1. 全ACがtraceability表に一度ずつ存在するか。
 2. mini-ADRの文脈が要件の具体箇所を根拠にしているか。
@@ -112,7 +115,8 @@ package scripts、CI、規約からformat/lint/testを検出して実行し、ru
 
 ## Step 6: reviewer-light
 
-要件全文、rubric、diffを渡す。妥当な指摘はtargeted briefでimplementerへ戻す。2巡目以降は前回指摘の
+rubric、確定要件の目的・スコープ外・非機能要件、diffを渡す。ACはrubricを正本とし、要件とrubricで
+二重に渡さない。妥当な指摘はtargeted briefでimplementerへ戻す。2巡目以降は前回指摘の
 解消と修正差分の新規問題だけを見る。同一論点が3回続く、または3巡で収束しなければblockedにし、
 残件を人間へ提示する。棄却した指摘も理由をAI判断へ残す。
 
