@@ -12,9 +12,9 @@ tools: Read, Grep, Glob, Bash
 
 ## 入力
 
-- 要件書（受け入れ基準の照合用）
+- rubric ファイル（受け入れ基準の正本。`~/.local/state/draftsmith/rubrics/{repo}-{task-slug}.md`）
+- 確定要件の目的・スコープ外（NG リスト）・非機能要件。AC は rubric と重複するため渡されない
 - 変更差分（`git diff` 相当）と変更ファイルの現物
-- rubric ファイル（存在する場合。`~/.local/state/draftsmith/rubrics/{repo}-{task-slug}.md`）
 
 ## 第 0 レンズ: rubric 照合（rubric がある場合は最優先）
 
@@ -33,8 +33,8 @@ FAIL した criterion は、下記「レビュー観点」の指摘リストに�
 
 ## レビュー観点（この 7 つだけを見る）
 
-1. **正確性**: 要件書の受け入れ基準に照らして、変更がやるべきことをやっているか。
-   ロジックの明らかな誤り・条件の反転・off-by-one
+1. **正確性**: rubric の受け入れ基準（rubric が無い場合は渡された目的）に照らして、変更が
+   やるべきことをやっているか。ロジックの明らかな誤り・条件の反転・off-by-one
 2. **エッジケース**: 空入力・null/undefined・境界値・異常系の考慮漏れ
 3. **意味的冗長性**: 同一ファイル・近傍に既にある関数/定数/型の再発明。既存を使えば
    消える重複
@@ -98,3 +98,8 @@ rubric verdict: DONE（全件 PASS） / NOT DONE（FAIL N 件）
   懸念はループの停止条件に数えない
 - rubric の FAIL は必ず指摘件数に含める。「指摘なし」と判定してよいのは
   rubric 全件 PASS（またはスキップ）かつ他 7 観点も無指摘の場合のみ
+- Bash は rubric の検証方法に書かれたコマンドと読み取り調査にだけ使う。ファイル・git 履歴・
+  リモートを変更するコマンド（書き込みリダイレクト・heredoc・`sed -i`・`rm` / `mv` / `git commit`
+  等）は実行しない。修正は main → implementer の経路で行う
+- 調査範囲は対象 repo の worktree と渡された成果物だけ。過去セッションのログ・トランスクリプトや
+  他 repo を横断検索しない

@@ -5,15 +5,11 @@
 
 ## Entry and goal
 
-entry:
+entryとgoalの正規化、`delivery × implemented`の扱い、resolve helperの呼び方はrootのRouting contract
+を正本とし、ここへ複製しない。`delivery` entryではdesigner、auditor、初回implementerを起動せず、
+現在branchとPRから開始する。曖昧さを隠す`auto` entryはstateへ保存しない。
 
-- `requirements`: full/light laneで要件から開始する。既定値。
-- `delivery`: designer、auditor、初回implementerを起動せず、現在branchとPRから開始する。
-
-自然言語が実装要件とPR続行の両方に読める場合、repo状態だけで開始地点を決めず確認する。
-曖昧さを隠す`auto` entryはstateへ保存しない。
-
-goal:
+各goalの到達点:
 
 - `implemented`: inner loop完了。従来の既定値。
 - `pr_open`: draft PRの作成確認まで。
@@ -22,16 +18,8 @@ goal:
 - `merge_ready`: review完了後の最新headを同じrubricで再検証するまで。ready化・mergeは含まない。
 - `merged`: `merge_ready`後、ready化とmergeの独立human gateを経てGitHubのmerged stateを実測するまで。
 
-`--through-review`は`--from=requirements --goal=review_complete`のshortcut。
-`--from=delivery`でgoal省略時は`review_complete`を使う。
-
-routingはmodel判断だけにせずhelperで解決する。user-facingの`--from`は`--entry`へ渡す。
-
-```bash
-python3 <skill-root>/scripts/delivery_state.py --repo . resolve
-python3 <skill-root>/scripts/delivery_state.py --repo . resolve --through-review
-python3 <skill-root>/scripts/delivery_state.py --repo . resolve --entry delivery
-```
+`--through-review`は`--from=requirements --goal=review_complete`のshortcut。user-facingの`--from`は
+`--entry`へ渡す。
 
 ## Start or resume
 
@@ -191,9 +179,8 @@ cycle数、optimistic concurrency用revision、timestampだけ。次は保存し
 各runの最後にphase、実測、外部変更、wait/gate、未検証項目を区別して報告する。
 
 到達goalの終端では`run_telemetry.py finish --final-phase <phase> --delivery-key <key>`で
-privacy-minimal v2 receiptをGit metadataへ
-生成する。receiptはopaque ID、enum、counter、duration、timestampだけを持ち、branch key、repo、
-task、PR番号、review fingerprint、本文、command、authorizationを含まない。v1 receiptは変更せず
+privacy-minimal v2 receiptをGit metadataへ生成する。receiptに入れてよい値はrootのRun
+initializationを正本とし、加えてbranch keyとreview fingerprintも含めない。v1 receiptは変更せず
 read-only入力として改善分析できる。複数receiptのproposal-only分析は
 `draftsmith-loop-improve`へ渡す。
 

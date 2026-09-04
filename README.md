@@ -50,9 +50,9 @@ splits the loop into three roles with **structurally enforced boundaries**:
   Every rejection is recorded to a structured **pain ledger**. Repeated category/cause/target
   fingerprints produce reviewable proposals with evidence and falsification criteria; they
   never rewrite a Skill, Rule, or `constitution.md` automatically.
-- **auditor** (opus, read-only) — a fresh-context semantic audit of the designer's brief,
-  run in the full lane by default (`--no-audit` to skip). The main session's 3-layer audit
-  is formal; the auditor checks *meaning* across six lenses (seams, bug seeds, conventions,
+- **auditor** (opus, read-only) — a fresh-context semantic audit of the brief, run by
+  default in the full lane and in light + independent audit (`--no-audit` to skip).
+  The main session's 3-layer audit is formal; the auditor checks *meaning* across six lenses (seams, bug seeds, conventions,
   requirement coverage, vague instructions, ADR validity) — and, being independent of the
   ordering context, it counters the structural conflict of interest of an orderer grading
   its own order. High-confidence findings must be applied or explicitly overruled.
@@ -185,21 +185,34 @@ the PR description. Full verdict coverage is machine-verified by the build scrip
 
 ### Lanes: full vs light
 
-At entry, draftsmith classifies the task and picks one of two lanes (overridable with
-`--full` / `--light`):
+At entry, draftsmith scores the task on two independent axes and picks a lane from the
+combination (overridable with `--full` / `--light`):
 
-- **full** — the 7-step flow above. Default whenever any design judgement is involved.
-- **light** — for tasks where the approach is unambiguous, the anchors are obvious from
-  the requirement (no investigation needed), and the change is small (~1–3 files, no
-  structural change). Skips designer (and hence the independent audit): the main session
-  writes the verbatim brief itself,
-  implementer applies it under the same no-guessing discipline, and reviewer-light runs
-  a **single pass** instead of looping. If mid-lane evidence shows the task was heavier
-  than judged (anchors need investigation, structural mismatch, design-level review
-  findings), it escalates one-way to full and restarts.
+- **Axis A (breadth)** — `small` only when all of: ~1–3 files, no change to existing
+  structure, public contracts, data model or dependency direction, and the edit anchors
+  are obvious without investigation. Otherwise `large`.
+- **Axis B (design judgement)** — `single` when the approach is unambiguous, `judged`
+  when several approaches are viable and need comparison.
 
-When in doubt the classifier falls back to full; the chosen lane and its reasoning are
-always listed in the final report.
+|  | Axis B = single | Axis B = judged |
+|---|---|---|
+| Axis A = small | light | light + independent audit |
+| Axis A = large | full | full |
+
+- **full** — the 7-step flow above.
+- **light** — skips designer and auditor: the main session writes the verbatim brief
+  itself, implementer applies it under the same no-guessing discipline, and reviewer-light
+  runs a **single pass** instead of looping.
+- **light + independent audit** — light plus one auditor pass over the brief the main
+  session wrote. A small change that still carries a design choice keeps its independent
+  audit without paying for the designer and consultant round trips; the lane is recorded
+  as `light` with an `auditor_round` event. Only `--no-audit` removes that pass.
+
+A doubtful axis A falls back to `large`. Escalation is one-way to full when axis A turns
+out to be wrong (anchors need investigation, structural mismatch, spillover beyond 1–3
+files) or when an auditor high finding demands a redesign; a change on axis B alone
+switches to light + independent audit. The chosen lane, both axis verdicts and the
+reasoning are always listed in the final report.
 
 ### Scope: what draftsmith deliberately does NOT own
 
@@ -275,8 +288,9 @@ designer/implementer split plus an auditable reply contract, at single-task gran
   **pain 台帳**へcategory・cause enum・target kindで記録される。同一fingerprintが2件以上なら、
   根拠・変更先・before/after・期待効果・反証方法を持つproposalになる。Skill、Rule、
   `constitution.md`を自動変更せず、人間が採否を決める
-- **auditor**（opus / read-only）— designer の brief をフレッシュコンテキストで意味的に
-  監査する独立監査層。full レーンで既定実行（`--no-audit` で省略可）。main の 3 層は
+- **auditor**（opus / read-only）— brief をフレッシュコンテキストで意味的に
+  監査する独立監査層。full と `light + 独立audit` で既定実行（`--no-audit` で省略可）。
+  後者では designer を省く代わりに main 自身が書いた brief を監査する。main の 3 層は
   形式の検査なので、意味の検査（接合面・バグの芽・規約準拠・要件充足の中身・設計の
   甘さ・mini-ADR の妥当性の 6 観点）を発注の経緯から独立した立場で担う。発注者が
   自分の発注物を評価する構造的な利益相反への対策でもある。high 信頼度の指摘は
@@ -417,17 +431,29 @@ PR description への転記用サマリー（コピーボタン付き）を含�
 
 ### レーン: full と light
 
-入口でタスクの軽重を判定し、2 レーンのどちらかを自動選択する（`--full` / `--light` で
-強制指定も可能）:
+入口で「変更の広がり（軸 A）」と「設計判断の有無（軸 B）」を別々に判定し、その組み合わせで
+レーンを選ぶ（`--full` / `--light` で強制指定も可能）:
 
-- **full** — 上記の 7 ステップフロー。設計判断が少しでも絡むならこちら
-- **light** — 方針が一意・アンカーが要件から自明（調査不要）・変更が小さい
-  （目安 1〜3 ファイル・構造変更なし）タスク向け。designer（と、それを見る auditor 独立監査）を
-  省略して main が逐語 brief を直接書き、implementer は同じ「推測しない」規律で適用、reviewer-light はループせず
-  **1 巡のみ**。実行中に判定より重いと分かったら（アンカーに調査が必要・構造的な
-  食い違い・設計に踏み込むレビュー指摘）、full へ一方向に昇格してやり直す
+- **軸 A** — 目安 1〜3 ファイル・既存構造や公開契約やデータモデルや依存方向を変えない・
+  変更アンカーが調査不要で自明、をすべて満たせば `小`。1 つでも欠けるか迷えば `大`
+- **軸 B** — 実装方針が一意なら `一意`、方針が複数ありえて比較が要るなら `要判断`
 
-迷ったら full に倒す保守的判定で、選んだレーンと理由は完了報告に必ず記録される。
+|  | 軸 B = 一意 | 軸 B = 要判断 |
+|---|---|---|
+| 軸 A = 小 | light | light + 独立audit |
+| 軸 A = 大 | full | full |
+
+- **full** — 上記の 7 ステップフロー
+- **light** — designer と auditor を省略して main が逐語 brief を直接書き、implementer は同じ
+  「推測しない」規律で適用、reviewer-light はループせず **1 巡のみ**
+- **light + 独立audit** — light に auditor 1 巡を足したレーン。小さいが設計判断を含む変更に対し、
+  designer と consultant の往復を払わずに独立監査だけを残す。レーンは `light` として記録し、
+  auditor の起動を `auditor_round` イベントに残す。省略できるのは `--no-audit` だけ
+
+軸 A が崩れた場合（アンカーに調査が必要・構造的な食い違い・1〜3 ファイルを超える波及）と、
+auditor の high 指摘が設計の作り直しを求める場合は full へ一方向に昇格する。軸 B だけが
+変わった場合は light + 独立audit へ切り替える。選んだレーン・両軸の判定・理由は完了報告に
+必ず記録される。
 
 ### draftsmith が意図的に持たないもの
 
