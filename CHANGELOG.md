@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-04
+
 ### Changed
 
 - lane判定を「変更の広がり」「設計判断の有無」の2軸へ変更し、「迷えばfull」を廃止。小さいが判断を要する変更にはdesignerを起動せず、mainのbriefを独立auditorが1巡監査する`light + 独立audit`を追加した（laneは`light`として記録し、`auditor_round` eventで観測できる）
@@ -197,7 +199,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/kaionn/draftsmith/compare/v1.15.0...v2.0.0
 [1.15.0]: https://github.com/kaionn/draftsmith/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/kaionn/draftsmith/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/kaionn/draftsmith/compare/v1.13.0...v1.13.1

@@ -1,6 +1,6 @@
 {
   "name": "draftsmith",
-  "version": "1.15.0",
+  "version": "2.0.0",
   "description": "Design-first task lifecycle for Claude Code and Codex, automatically selected from natural-language implementation and PR delivery requests.",
   "author": {
     "name": "kaionn",
