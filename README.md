@@ -490,6 +490,8 @@ skills/draftsmith/SKILL.md      # routing・不変条件・段階ロード
 skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR・plan ファイル・rubric・brief-visual・park note
 skills/draftsmith/references/   # full/light/artifact/deliveryの条件付き手順
 skills/draftsmith/scripts/      # state・telemetry・inspect・evidence・cockpit helper
+skills/draftsmith/scripts/check_reply_contract.py # designer-return.md の5要素・AC網羅・digest検査
+skills/draftsmith/scripts/run_cost.py             # session transcript の role 別トークン集計（数値のみ）
 skills/adapters/draftsmith-delivery-driver/SKILL.md # single-driver lease付きの再開adapter
 skills/adapters/draftsmith-loop-improve/SKILL.md # receiptからproposal-only改善
 skills/adapters/draftsmith-inspect/SKILL.md # doctor / status / run-card
