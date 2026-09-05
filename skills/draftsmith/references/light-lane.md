@@ -37,7 +37,8 @@
    ```bash
    python3 <skill-root>/scripts/run_telemetry.py --repo . finish --run-id <id> \
      --expect-revision <revision> --final-phase implemented \
-     --promote-check --plan-file plans/<task>.md --plan-status implemented
+     --promote-check --plan-file plans/<task>.md --plan-status implemented \
+     [--cost-from <main transcript .jsonl>]
    ```
 
    後段goalならfinishせず、planを`Status: implemented`へ更新し、delivery stateを

@@ -382,6 +382,19 @@ class RunTelemetryTest(unittest.TestCase):
         # The bundled start is the same start: a second plain start resumes the same run.
         self.assertEqual(self.start(), payload["run"]["run_id"])
 
+    def test_finish_warns_on_all_zero_counters_unless_forced(self) -> None:
+        run_id = self.start("light")
+        result = self.finish_result(run_id)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("all telemetry counters are 0", result.stderr)
+        forced = self.start("light", "requirements", "pr_open")
+        quiet = self.finish_result(forced, "blocked", "--force-empty")
+        self.assertNotIn("counters are 0", quiet.stderr)
+        counted = self.start("full", "requirements", "review_requested")
+        self.event(counted, "designer_round", "c" * 32)
+        counted_result = self.finish_result(counted, "blocked")
+        self.assertNotIn("counters are 0", counted_result.stderr)
+
     def test_finish_bundles_promote_check_and_plan_status(self) -> None:
         plan = self.repo / "plans" / "task.md"
         plan.parent.mkdir()
@@ -471,6 +484,95 @@ class RunTelemetryTest(unittest.TestCase):
         # The receipt is already immutable; the missing plan is reported as an error afterwards.
         self.assertEqual(missing_plan.returncode, 2)
         self.assertIn("plan file not found", missing_plan.stderr)
+
+    def test_finish_projects_transcript_cost_into_receipt(self) -> None:
+        transcript = Path(self.tempdir.name) / "session.jsonl"
+        rows = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-09-05T00:00:00Z",
+                "message": {
+                    "id": "m1",
+                    "usage": {
+                        "input_tokens": 10,
+                        "cache_creation_input_tokens": 20,
+                        "cache_read_input_tokens": 30,
+                        "output_tokens": 5,
+                    },
+                    "content": [{"type": "text", "text": "SECRET-BODY"}],
+                },
+            },
+            {"type": "user", "timestamp": "2026-09-05T00:00:10Z", "message": {"content": "x"}},
+        ]
+        transcript.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+        run_id = self.start("full")
+        self.event(run_id, "designer_round", "e" * 32)
+        result = self.finish_result(run_id, "implemented", "--cost-from", str(transcript))
+        receipt_path = Path(result.stdout.splitlines()[0])
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        validate_receipt(receipt)
+        self.assertEqual(receipt["cost"]["roles"]["main"]["turns"], 1)
+        self.assertEqual(receipt["cost"]["roles"]["main"]["avg_context_tokens"], 60)
+        self.assertEqual(receipt["cost"]["roles"]["main"]["duration_seconds"], 10)
+        self.assertNotIn("SECRET-BODY", receipt_path.read_text(encoding="utf-8"))
+        self.assertNotIn(str(transcript), receipt_path.read_text(encoding="utf-8"))
+        self.assertEqual(json.loads(result.stdout.splitlines()[1])["cost"], "projected")
+        bad_role = json.loads(json.dumps(receipt))
+        bad_role["cost"]["roles"]["branch-name"] = bad_role["cost"]["roles"]["main"]
+        with self.assertRaises(TelemetryError):
+            validate_receipt(bad_role)
+        missing = self.finish_result(
+            self.start("light", "requirements", "pr_open"),
+            "blocked",
+            "--cost-from",
+            str(Path(self.tempdir.name) / "nope.jsonl"),
+            check=False,
+        )
+        self.assertEqual(missing.returncode, 2)
+
+    def test_receipt_proposals_rank_cost_hotspots_from_cost_blocks(self) -> None:
+        def metrics(cache_read: int, turns: int, output: int) -> dict[str, int]:
+            return {
+                "turns": turns,
+                "avg_context_tokens": 1,
+                "max_context_tokens": 1,
+                "output_tokens": output,
+                "cache_read_tokens": cache_read,
+                "cache_creation_tokens": 0,
+                "duration_seconds": 1,
+                "agents": 1,
+            }
+
+        # Producing cost blocks through finish --cost-from would need two real transcripts;
+        # inject validated cost blocks into finished receipts instead.
+        for roles in (
+            {"main": metrics(100, 10, 5), "designer": metrics(300, 30, 7)},
+            {"main": metrics(100, 20, 9), "auditor": metrics(150, 12, 3)},
+        ):
+            run_id = self.start("full", "requirements", "pr_open")
+            receipt_path = self.finish(run_id, "blocked", "--force-empty")
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            receipt["cost"] = {
+                "schema_version": 1,
+                "roles": roles,
+                "total": metrics(0, 0, 0),
+                "unmapped_subagents": 0,
+            }
+            validate_receipt(receipt)
+            receipt_path.chmod(0o600)
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        payload = json.loads(self.invoke(PROPOSALS).stdout)
+        hotspots = payload["cost_hotspots"]
+        self.assertEqual([item["role"] for item in hotspots], ["designer", "main"])
+        designer, main = hotspots
+        self.assertEqual(designer["evidence"]["receipt_count"], 1)
+        self.assertEqual(designer["evidence"]["cache_read_tokens_total"], 300)
+        self.assertEqual(main["evidence"]["receipt_count"], 2)
+        self.assertEqual(main["evidence"]["cache_read_tokens_total"], 200)
+        self.assertEqual(main["evidence"]["turns_mean"], 15)
+        self.assertEqual(main["evidence"]["output_tokens_mean"], 7)
+        self.assertNotIn("auditor", json.dumps(hotspots))
+        self.assertEqual(payload["proposals"], [])
 
     def test_delivery_metric_api_prevents_finding_double_count(self) -> None:
         self.invoke(STATE, "init", "--goal", "implemented")

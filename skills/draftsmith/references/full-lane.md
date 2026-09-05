@@ -165,7 +165,8 @@ planへレーン判断、要件補完、確認事項、auditor採否、consultan
 ```bash
 python3 <skill-root>/scripts/run_telemetry.py --repo . finish --run-id <id> \
   --expect-revision <revision> --final-phase implemented \
-  --promote-check --plan-file plans/<task>.md --plan-status implemented
+  --promote-check --plan-file plans/<task>.md --plan-status implemented \
+  [--cost-from <main transcript .jsonl>]
 ```
 
 変更・AI判断・検証・残課題の4項目で報告する。後段goalならここではfinishせず、planを

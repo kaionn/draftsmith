@@ -126,12 +126,18 @@ python3 <skill-root>/scripts/run_telemetry.py --repo . event --run-id <id> \
 python3 <skill-root>/scripts/run_telemetry.py --repo . finish --run-id <id> \
   --expect-revision <revision> \
   --final-phase <implemented|pr_open|wait_human_review|review_complete|merge_ready|done|blocked> \
-  [--delivery-key <key>] [--promote-check] [--plan-file <path> --plan-status implemented]
+  [--delivery-key <key>] [--promote-check] [--plan-file <path> --plan-status implemented] \
+  [--cost-from <main transcript .jsonl>] [--force-empty]
 ```
 
 finishは終端の帳簿を1コマンドへ束ねる。`--promote-check`は`scripts/audit-ledger.sh promote-check`を
 同じprocessで実行し（script不在・失敗はwarningでfinishは成功）、`--plan-file` + `--plan-status`は
-planの`- Status:`行を書き換える。
+planの`- Status:`行を書き換え、`--cost-from`はsession transcriptからrole別コスト（turn数・context・
+output・cache・duration）をreceiptの`cost`ブロックへ投影する。countersが全0のfinishは
+`--force-empty`が無い限りstderrへwarningを出す（agentを起動したのにeventを記録していない徴候）。
+transcript pathはhookの`transcript_path`、無ければ
+`~/.claude/projects/<cwdを-区切りにencodeしたdir>/<session>.jsonl`（subagentは
+`<同名dir>/subagents/agent-*.jsonl`）。
 
 retention warningは人間へ提示するだけで、自動削除しない。
 

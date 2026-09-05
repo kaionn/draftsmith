@@ -16,6 +16,8 @@ from typing import Any
 
 from delivery_state import ENTRIES, GOALS, StateError, load, parse_timestamp, resolve, state_lock
 from git_storage import StorageError, atomic_json, metadata_dir
+from run_cost import ROLES as COST_ROLES
+from run_cost import CostError, collect as collect_cost
 
 
 SCHEMA_VERSION = 2
@@ -59,6 +61,20 @@ RECEIPT_KEYS = {
     "schema_version", "run_id", "lane", "entry", "goal", "final_phase", "counters",
     "delivery_counters", "duration_seconds", "started_at", "finished_at",
 }
+# Additive, optional per-role cost block projected from a session transcript. Numbers and role
+# enums only; schema_version of the receipt stays at 2.
+RECEIPT_OPTIONAL_KEYS = {"cost"}
+COST_METRIC_FIELDS = {
+    "turns",
+    "avg_context_tokens",
+    "max_context_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "cache_creation_tokens",
+    "duration_seconds",
+    "agents",
+}
+COST_KEYS = {"schema_version", "roles", "total", "unmapped_subagents"}
 PLAN_STATUS_RE = re.compile(r"^(\s*-\s*Status:\s*)(\S+)(\s*)$")
 PLAN_STATUSES = ("designed", "implemented")
 AUDIT_LEDGER = Path(__file__).resolve().parents[3] / "scripts" / "audit-ledger.sh"
@@ -119,9 +135,33 @@ def validate_run(run: dict[str, Any]) -> None:
     parse_timestamp(run["started_at"])
 
 
+def validate_cost(cost: Any) -> None:
+    if not isinstance(cost, dict) or set(cost) != COST_KEYS:
+        raise TelemetryError("invalid receipt cost block")
+    if not isinstance(cost.get("schema_version"), int):
+        raise TelemetryError("invalid receipt cost schema version")
+    if not isinstance(cost.get("unmapped_subagents"), int) or cost["unmapped_subagents"] < 0:
+        raise TelemetryError("invalid receipt cost unmapped count")
+    roles = cost.get("roles")
+    if not isinstance(roles, dict) or any(role not in COST_ROLES for role in roles):
+        raise TelemetryError("receipt cost roles must be draftsmith role enums")
+    for metrics in list(roles.values()) + [cost.get("total")]:
+        if not isinstance(metrics, dict) or set(metrics) != COST_METRIC_FIELDS:
+            raise TelemetryError("invalid receipt cost metrics")
+        if any(not isinstance(value, int) or value < 0 for value in metrics.values()):
+            raise TelemetryError("receipt cost metrics must be non-negative integers")
+
+
 def validate_receipt(receipt: dict[str, Any]) -> None:
-    if set(receipt) != RECEIPT_KEYS or receipt.get("schema_version") != SCHEMA_VERSION:
+    keys = set(receipt)
+    if (
+        not RECEIPT_KEYS <= keys
+        or keys - RECEIPT_KEYS - RECEIPT_OPTIONAL_KEYS
+        or receipt.get("schema_version") != SCHEMA_VERSION
+    ):
         raise TelemetryError("invalid v2 receipt schema")
+    if "cost" in receipt:
+        validate_cost(receipt["cost"])
     if not OPAQUE_ID_RE.fullmatch(receipt.get("run_id", "")):
         raise TelemetryError("invalid v2 receipt run id")
     if receipt.get("lane") not in LANES:
@@ -267,6 +307,9 @@ def finish(
     final_phase: str,
     delivery_key: str | None,
     expected_revision: int,
+    *,
+    cost: dict[str, Any] | None = None,
+    force_empty: bool = False,
 ) -> tuple[Path, list[str]]:
     run_path, receipt_path = paths(repo, run_id, create=False)
     with state_lock(run_path):
@@ -333,8 +376,17 @@ def finish(
             "started_at": run["started_at"],
             "finished_at": finished_at,
         }
+        if cost is not None:
+            receipt["cost"] = cost
         validate_receipt(receipt)
         warnings: list[str] = []
+        if not force_empty and not any(run["counters"].values()):
+            # Every agent round should have left an event; an all-zero receipt usually means the
+            # run recorded nothing, not that nothing happened.
+            warnings.append(
+                "warning: all telemetry counters are 0; events were not recorded "
+                "(pass --force-empty to silence)"
+            )
         atomic_json(receipt_path, receipt, immutable=True)
         run_path.unlink()
     retention = retention_warning(receipt_path.parent)
@@ -374,6 +426,17 @@ def main() -> int:
     )
     finish_parser.add_argument("--plan-file", type=Path)
     finish_parser.add_argument("--plan-status", choices=PLAN_STATUSES)
+    finish_parser.add_argument(
+        "--cost-from",
+        type=Path,
+        metavar="MAIN_JSONL",
+        help="project per-role cost from a session transcript into the receipt",
+    )
+    finish_parser.add_argument(
+        "--force-empty",
+        action="store_true",
+        help="silence the warning for receipts whose counters are all 0",
+    )
     args = parser.parse_args()
     try:
         if args.command == "start":
@@ -409,12 +472,20 @@ def main() -> int:
         else:
             if (args.plan_file is None) != (args.plan_status is None):
                 raise TelemetryError("--plan-file and --plan-status must be given together")
+            cost: dict[str, Any] | None = None
+            if args.cost_from is not None:
+                try:
+                    cost = collect_cost(args.cost_from)
+                except CostError as exc:
+                    raise TelemetryError(f"cannot collect cost: {exc}") from exc
             result, warnings = finish(
                 args.repo,
                 args.run_id,
                 args.final_phase,
                 args.delivery_key,
                 args.expect_revision,
+                cost=cost,
+                force_empty=args.force_empty,
             )
             print(result)
             extras: dict[str, Any] = {}
@@ -426,6 +497,8 @@ def main() -> int:
                     warnings.append(extras["promote_check"]["warning"])
             if args.plan_file is not None:
                 extras["plan"] = update_plan_status(args.plan_file, args.plan_status)
+            if cost is not None:
+                extras["cost"] = "projected" if "cost" in load_json(result) else "skipped"
             if extras:
                 print(json.dumps(extras, ensure_ascii=False, sort_keys=True))
             for warning in warnings:
