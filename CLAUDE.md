@@ -9,6 +9,7 @@
 - `skills/draftsmith/agents/openai.yaml` — Codexでの自然言語による暗黙Skill選択を明示的に許可
 - `skills/draftsmith/references/delivery-loop.md` — commit gate からPR review・merge-readyまでのre-entrant lifecycle
 - `skills/draftsmith/scripts/delivery_state.py` — Git metadata配下のdelivery state helper
+- `skills/draftsmith/scripts/delivery_hook.py` — hooks から呼ばれる park / resume の唯一のPython entry（state無しでは delivery_state をimportしない）
 - `skills/draftsmith/scripts/run_telemetry.py` — opaque IDのv2 run telemetryとimmutable receipt
 - `skills/draftsmith/scripts/receipt_proposals.py` — v1/v2 receipt混在のproposal-only分析
 - `skills/draftsmith/scripts/proposal_lifecycle.py` — human decisionと5-run効果測定
@@ -27,7 +28,10 @@
 - `agents/` — designer / auditor / consultant / implementer / reviewer-light / diff-analyzer / evidence-reviewer
 - `tests/test_delivery_state.py` — delivery phase遷移・linked worktree・schemaの回帰テスト
 - `tests/test_plugin_manifest.py` — plugin / marketplace / Skill discovery metadataの整合テスト
+- `tests/test_hooks.py` — SessionStart / Stop hookのsubprocess回帰テスト
 - `.github/workflows/validate.yml` — PRごとのPython 3.10/3.13回帰テストとwhitespace検査
+- `hooks/draftsmith-hooks.json` — plugin hooks宣言（SessionStart=resume brief注入 / Stop=未parkのblock）。既定の `hooks/hooks.json` は二重登録を避けるため使わない
+- `hooks/session-start-resume-brief.sh` / `hooks/stop-park-reminder.sh` — hook wrapper（失敗しても exit 0 で黙る）
 - `skills/draftsmith/templates/` — 要件書・出力契約・mini-ADR・plan ファイルのテンプレート
 - `skills/diff-review/scripts/` + `templates/` — diff 分割・HTML ビルド（Python stdlib のみ）とレビュー画面テンプレート
 - `skills/verify-report/scripts/` + `templates/` — 証跡埋め込みレポートのビルド（Python stdlib のみ）とテンプレート

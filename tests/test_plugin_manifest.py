@@ -23,6 +23,46 @@ class PluginManifestTest(unittest.TestCase):
         self.assertEqual(entry["source"], "./")
         self.assertIn("./skills/", plugin["skills"])
         self.assertIn("./skills/adapters/", plugin["skills"])
+        self.assertEqual(plugin["hooks"], "./hooks/draftsmith-hooks.json")
+
+    def test_plugin_hooks_are_declared_and_resolvable(self) -> None:
+        plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+        hooks_path = ROOT / plugin["hooks"].lstrip("./")
+        self.assertTrue(hooks_path.is_file())
+        # The default auto-discovery location stays empty so the manifest reference is the only
+        # registration, under either reading of the docs ("default is additive" / "replaces").
+        self.assertFalse((ROOT / "hooks" / "hooks.json").exists())
+
+        config = json.loads(hooks_path.read_text(encoding="utf-8"))
+        self.assertEqual(set(config), {"hooks"})
+        self.assertEqual(set(config["hooks"]), {"SessionStart", "Stop"})
+
+        session_start = config["hooks"]["SessionStart"]
+        self.assertEqual([group["matcher"] for group in session_start], ["startup|resume|clear|fork"])
+        for group in config["hooks"]["Stop"]:
+            self.assertNotIn("matcher", group)
+
+        commands = []
+        for event in ("SessionStart", "Stop"):
+            for group in config["hooks"][event]:
+                self.assertTrue(group["hooks"], f"{event} declares no hook command")
+                for hook in group["hooks"]:
+                    self.assertEqual(hook["type"], "command")
+                    self.assertIn("${CLAUDE_PLUGIN_ROOT}", hook["command"])
+                    # The default command timeout is 600s, which a hung git call would burn in
+                    # full; an explicit short timeout is the only thing that bounds it.
+                    self.assertIsInstance(hook["timeout"], int)
+                    self.assertGreater(hook["timeout"], 0)
+                    self.assertLessEqual(hook["timeout"], 10)
+                    commands.append(hook["command"])
+
+        relative = [command.split('"')[-1].lstrip("/") for command in commands]
+        self.assertEqual(
+            sorted(relative),
+            ["hooks/session-start-resume-brief.sh", "hooks/stop-park-reminder.sh"],
+        )
+        for name in relative:
+            self.assertTrue((ROOT / name).is_file(), f"{name} is declared but missing")
 
     def test_skill_frontmatter_keeps_required_discovery_fields(self) -> None:
         text = (ROOT / "skills" / "draftsmith" / "SKILL.md").read_text(encoding="utf-8")
@@ -37,6 +77,8 @@ class PluginManifestTest(unittest.TestCase):
             "設計から実装して",
             "今の差分をPRにして",
             "このPRのCI・レビュー対応を続けて",
+            "コメント対応して",
+            "レビュー待ちにして",
             "マージまで進めて",
             "entry=requirements",
             "goal=implemented",

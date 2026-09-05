@@ -3,7 +3,8 @@ name: draftsmith
 description: >-
   1タスクのコード変更を設計・監査・実装・検証し、必要ならPR deliveryまで進める。
   「設計から実装して」「今の差分をPRにして」「このPRのCI・レビュー対応を続けて」
-  「マージまで進めて」で使う。新規作業はentry=requirements・goal=implemented、PR続行は
+  「マージまで進めて」「コメント対応して」「レビュー待ちにして」で使う。
+  新規作業はentry=requirements・goal=implemented、PR続行は
   entry=delivery・goal=review_complete。PR作成=pr_open、レビュー依頼=review_requested、
   レビュー完了=review_complete、merge-ready=merge_ready、マージ=mergedへ正規化する。
   第三者PRのレビューだけ、差分解説だけ、設計だけ、複数タスク一括には使わない。
@@ -32,6 +33,12 @@ user-invocable: true
 | このPRのCI・レビュー対応を続けて | `delivery` | `review_complete` |
 | このPRをmerge-readyまで | `delivery` | `merge_ready` |
 | このPRをマージまで | `delivery` | `merged` |
+| 「PRのコメント見て」「コメント対応して」「レビュー返ってきた」「CI落ちてる、直して」 | `delivery` | `review_complete` |
+| 「レビュー待ちにして」「一旦ここで閉じる」「park して」 | 現在のrun（変えない） | 現在のgoal（変えない） |
+
+parkはentryもgoalも変えない。現在のrunをその場で中断し、散文noteを残して次のsessionへ渡す
+操作で、手順は[delivery loop](references/delivery-loop.md)の「Park and resume」に従う。
+active runが無い状態でparkを頼まれたら、runを新しく作らずその事実を報告する。
 
 ```bash
 python3 <skill-root>/scripts/delivery_state.py --repo . resolve \

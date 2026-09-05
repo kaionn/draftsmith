@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- delivery runをsession単位でpark / resumeできるようにした。`delivery_state.py park`が散文のpark noteをGit metadata配下へ0600で書き、`parked_head_sha`と`park_round`、`parked_revision`を記録する（phaseは変えない）。`resume-brief`が次のsessionへphase、PR、HEAD差分、park後のstate差分、note、reconcile checklistを返す
+- plugin hooksを追加した。SessionStart（`startup|resume|clear|fork`）がpark中のworktreeでresume briefを注入し、Stopが未parkのまま終わろうとしたときだけpark手順を示してblockする。未parkの判定はrevisionとHEADの両方で行うので、HEADを動かさないreview往復も検出する
+
 ## [2.0.0] - 2026-09-04
 
 ### Changed

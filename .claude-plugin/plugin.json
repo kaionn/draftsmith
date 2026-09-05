@@ -20,5 +20,6 @@
   "skills": [
     "./skills/",
     "./skills/adapters/"
-  ]
+  ],
+  "hooks": "./hooks/draftsmith-hooks.json"
 }
