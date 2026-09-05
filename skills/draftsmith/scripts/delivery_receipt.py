@@ -39,11 +39,11 @@ def legacy_main() -> int:
         else:
             run_path = start(args.repo, "unknown", state["entry"], state["goal"])
             run = load_json(run_path)
-        receipt, warning = finish(
+        receipt, warnings = finish(
             args.repo, run["run_id"], state["phase"], key, run["revision"]
         )
         print(receipt)
-        if warning:
+        for warning in warnings:
             print(warning, file=sys.stderr)
     except (StateError, StorageError, TelemetryError) as exc:
         print(f"error: {exc}", file=sys.stderr)

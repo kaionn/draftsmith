@@ -30,10 +30,18 @@
 5. reviewer-lightへrubric、簡易要件の目的・スコープ外・非機能要件、diffを渡して1巡する。ACは
    rubricを正本とし、要件とrubricで二重に渡さない。妥当な指摘はtargeted修正しmainが再検証する。
    再reviewはしない。指摘が設計判断へ踏み込むならfullへ昇格する。棄却理由はAI判断へ残す。
-6. planを`Status: implemented`へ更新し、レーン理由（軸A・軸Bの判定と独立auditの有無）とAI判断を
-   転記する。audit proposal-checkを行う。goalが`implemented`ならtelemetryを
-   `--final-phase implemented`でfinishし、変更・AI判断・検証・残課題の4項目で報告する。後段goalなら
-   finishせず、delivery stateを`phase=implemented`で初期化してdelivery loopへ引き継ぐ。
+6. planへレーン理由（軸A・軸Bの判定と独立auditの有無）とAI判断を転記する。goalが`implemented`
+   なら、plan status更新・audit proposal-check・telemetry finishを1コマンドで束ね、変更・AI判断・
+   検証・残課題の4項目で報告する。
+
+   ```bash
+   python3 <skill-root>/scripts/run_telemetry.py --repo . finish --run-id <id> \
+     --expect-revision <revision> --final-phase implemented \
+     --promote-check --plan-file plans/<task>.md --plan-status implemented
+   ```
+
+   後段goalならfinishせず、planを`Status: implemented`へ更新し、delivery stateを
+   `phase=implemented`で初期化してdelivery loopへ引き継ぐ。
 
 アンカー特定に調査が要る、implementerの不一致が構造的、review指摘が設計判断へ踏み込む、
 auditor highが設計の作り直しを要求する、のいずれかでfullへ昇格し手順1からやり直す。

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -79,20 +80,25 @@ class RunTelemetryTest(unittest.TestCase):
         self.revisions[run_id] = json.loads(result.stdout)["revision"]
         return result
 
-    def finish(self, run_id: str, phase: str = "implemented", *extra: str) -> Path:
-        return Path(
-            self.invoke(
-                TELEMETRY,
-                "finish",
-                "--run-id",
-                run_id,
-                "--final-phase",
-                phase,
-                *extra,
-                "--expect-revision",
-                str(self.revisions[run_id]),
-            ).stdout.strip()
+    def finish_result(
+        self, run_id: str, phase: str = "implemented", *extra: str, check: bool = True
+    ) -> subprocess.CompletedProcess[str]:
+        return self.invoke(
+            TELEMETRY,
+            "finish",
+            "--run-id",
+            run_id,
+            "--final-phase",
+            phase,
+            *extra,
+            "--expect-revision",
+            str(self.revisions[run_id]),
+            check=check,
         )
+
+    def finish(self, run_id: str, phase: str = "implemented", *extra: str) -> Path:
+        # The receipt path is always the first stdout line; bundled extras follow as JSON.
+        return Path(self.finish_result(run_id, phase, *extra).stdout.splitlines()[0].strip())
 
     def test_default_run_does_not_create_delivery_state_and_resumes_active_telemetry(self) -> None:
         before = list((self.repo / ".git").glob("draftsmith-delivery/*.json"))
@@ -353,6 +359,118 @@ class RunTelemetryTest(unittest.TestCase):
             [item["signal"] for item in two["proposals"]], ["delivery_ci_failures"]
         )
         self.assertNotIn("legacy-branch", json.dumps(two))
+
+    def test_start_with_run_card_bundles_card_and_run(self) -> None:
+        result = self.invoke(
+            TELEMETRY,
+            "start",
+            "--lane",
+            "full",
+            "--entry",
+            "requirements",
+            "--goal",
+            "implemented",
+            "--run-card",
+        )
+        payload = json.loads(result.stdout)
+        self.assertEqual(set(payload), {"run_card", "run"})
+        self.assertEqual(payload["run_card"]["lane"], "full")
+        self.assertEqual(payload["run_card"]["references"], ["references/full-lane.md"])
+        self.assertTrue(payload["run_card"]["read_only"])
+        self.assertEqual(payload["run"]["revision"], 0)
+        self.revisions[payload["run"]["run_id"]] = 0
+        # The bundled start is the same start: a second plain start resumes the same run.
+        self.assertEqual(self.start(), payload["run"]["run_id"])
+
+    def test_finish_bundles_promote_check_and_plan_status(self) -> None:
+        plan = self.repo / "plans" / "task.md"
+        plan.parent.mkdir()
+        plan.write_text(
+            "# Plan: task\n\n- Lane: light\n- Status: designed\n- Created: 2026-09-05\n",
+            encoding="utf-8",
+        )
+        ledger_home = Path(self.tempdir.name) / "home"
+        (ledger_home / ".local" / "state" / "draftsmith").mkdir(parents=True)
+        ledger = ledger_home / ".local" / "state" / "draftsmith" / "audit-pains.jsonl"
+        pain = {"ts": "2026-09-05T00:00:00Z", "repo": "r", "category": "scope-creep",
+                "cause": "boundary-expansion", "target_kind": "rubric", "fp": "abcd1234abcd1234"}
+        ledger.write_text((json.dumps(pain) + "\n") * 2, encoding="utf-8")
+        run_id = self.start("light")
+        self.event(run_id, "reviewer_round", "d" * 32)
+        env = dict(os.environ, HOME=str(ledger_home))
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(TELEMETRY),
+                "--repo",
+                str(self.repo),
+                "finish",
+                "--run-id",
+                run_id,
+                "--final-phase",
+                "implemented",
+                "--expect-revision",
+                str(self.revisions[run_id]),
+                "--promote-check",
+                "--plan-file",
+                str(plan),
+                "--plan-status",
+                "implemented",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        receipt_path, extras_line = result.stdout.splitlines()[:2]
+        self.assertTrue(Path(receipt_path).is_file())
+        extras = json.loads(extras_line)
+        self.assertEqual(extras["plan"]["previous"], "designed")
+        self.assertIn("- Status: implemented\n", plan.read_text(encoding="utf-8"))
+        self.assertNotIn("- Status: designed", plan.read_text(encoding="utf-8"))
+        promote = extras["promote_check"]
+        if shutil.which("jq"):
+            self.assertEqual(promote["status"], "ok")
+            self.assertEqual(promote["proposals"], 1)
+        else:
+            self.assertIn(promote["status"], {"ok", "failed", "missing"})
+        # Re-running the bundled finish is safe: the receipt is immutable and the plan stays.
+        again = subprocess.run(
+            [
+                sys.executable,
+                str(TELEMETRY),
+                "--repo",
+                str(self.repo),
+                "finish",
+                "--run-id",
+                run_id,
+                "--final-phase",
+                "implemented",
+                "--expect-revision",
+                str(self.revisions[run_id]),
+                "--plan-file",
+                str(plan),
+                "--plan-status",
+                "implemented",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(again.stdout.splitlines()[0], receipt_path)
+        missing_plan = self.finish_result(
+            self.start("light", "requirements", "pr_open"),
+            "blocked",
+            "--plan-file",
+            str(self.repo / "plans" / "missing.md"),
+            "--plan-status",
+            "implemented",
+            check=False,
+        )
+        # The receipt is already immutable; the missing plan is reported as an error afterwards.
+        self.assertEqual(missing_plan.returncode, 2)
+        self.assertIn("plan file not found", missing_plan.stderr)
 
     def test_delivery_metric_api_prevents_finding_double_count(self) -> None:
         self.invoke(STATE, "init", "--goal", "implemented")

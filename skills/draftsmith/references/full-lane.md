@@ -159,10 +159,18 @@ rubric、確定要件の目的・スコープ外・非機能要件、diffを渡�
 
 ## Step 7: 完了
 
-planを`Status: implemented`へ更新し、レーン判断、要件補完、確認事項、auditor採否、consultant諮問、
-保守的仮定を転記する。audit proposal-checkを一度行う。goalが`implemented`ならtelemetryを
-`--final-phase implemented`でfinishし、変更・AI判断・検証・残課題の4項目で報告する。後段goalなら
-ここではfinishせず、delivery stateを`phase=implemented`で初期化してdelivery loopへ引き継ぐ。
+planへレーン判断、要件補完、確認事項、auditor採否、consultant諮問、保守的仮定を転記する。goalが
+`implemented`なら、plan status更新・audit proposal-check・telemetry finishを1コマンドで束ねる。
+
+```bash
+python3 <skill-root>/scripts/run_telemetry.py --repo . finish --run-id <id> \
+  --expect-revision <revision> --final-phase implemented \
+  --promote-check --plan-file plans/<task>.md --plan-status implemented
+```
+
+変更・AI判断・検証・残課題の4項目で報告する。後段goalならここではfinishせず、planを
+`Status: implemented`へ更新し、delivery stateを`phase=implemented`で初期化してdelivery loopへ
+引き継ぐ。
 
 監査painのcauseとtargetは自由記述にせずrootのstructured record interfaceを使う。inner loopの
 findingだけをrun telemetry eventへ記録する。PR deliveryへ入った後のfindingはreview fingerprintを

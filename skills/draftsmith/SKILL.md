@@ -101,11 +101,13 @@ lane判定は`requirements` entryだけで行い、変更の広がり（軸A）�
 telemetryやcockpitへdelivery phaseを複製しない。
 
 ```bash
-python3 <skill-root>/scripts/run_inspect.py --repo . run-card --lane <full|light|unknown> \
-  --entry <requirements|delivery> [--goal <goal>]
 python3 <skill-root>/scripts/run_telemetry.py --repo . start --lane <full|light|unknown> \
-  --entry <entry> --goal <goal>
+  --entry <entry> --goal <goal> --run-card
 ```
+
+`--run-card`は`run_inspect.py run-card`と同じJSONを`run_card`キーに、startの結果を`run`キーに
+入れた1オブジェクトを返す。run cardとtelemetry startを別々のBashで呼ばない（帳簿の呼び出しは
+1 turnごとに現在のcontext全体を再送するため、束ねる）。
 
 同一worktreeにactive runが1件あれば同じrouteで再開し、複数あれば停止する。返されたopaque
 `run_id`と`revision`を保持する。事象は一意なopaque `event_id`で1回記録し、同じ事象を
@@ -124,8 +126,12 @@ python3 <skill-root>/scripts/run_telemetry.py --repo . event --run-id <id> \
 python3 <skill-root>/scripts/run_telemetry.py --repo . finish --run-id <id> \
   --expect-revision <revision> \
   --final-phase <implemented|pr_open|wait_human_review|review_complete|merge_ready|done|blocked> \
-  [--delivery-key <key>]
+  [--delivery-key <key>] [--promote-check] [--plan-file <path> --plan-status implemented]
 ```
+
+finishは終端の帳簿を1コマンドへ束ねる。`--promote-check`は`scripts/audit-ledger.sh promote-check`を
+同じprocessで実行し（script不在・失敗はwarningでfinishは成功）、`--plan-file` + `--plan-status`は
+planの`- Status:`行を書き換える。
 
 retention warningは人間へ提示するだけで、自動削除しない。
 
@@ -164,9 +170,9 @@ auditor highを棄却する時、軽微修正か設計差戻しか迷う時は�
 
 ```bash
 scripts/audit-ledger.sh record <category> <cause-enum> <target-kind> <repo>
-scripts/audit-ledger.sh promote-check
 ```
 
+promote-checkは単独で呼ばず、telemetry finishの`--promote-check`で束ねる。
 同一fingerprintが2件以上ならproposalを生成するが、Skill、Rule、constitutionを自動変更しない。
 適用も撤回も人間の承認を要する。proposalの提示形式と適用後の効果測定は`draftsmith-loop-improve`を
 正本とし、ここへ複製しない。
