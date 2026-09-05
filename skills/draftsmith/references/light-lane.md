@@ -4,7 +4,11 @@
 独立review、telemetry contractは省略しない。軸B=要判断で選んだ`light + 独立audit`では手順3の
 独立auditを必ず行い、軸B=一意のlightだけが手順3を飛ばす。
 
-1. 目的、AC-n 2〜3件、反証可能な予測、対象repo規範を簡易要件にする。簡易要件は`~/.local/state/draftsmith/runs/{repo}/{task-slug}/requirements.md`へ
+1. 目的、AC-n 2〜3件、反証可能な予測、対象repo規範を簡易要件にする。repo規範は規範ファイル
+   （`AI_CONTEXT.md`、CLAUDE.md、lint設定等）を全文Readせず、`rg -n`で見出しと拘束語（必ず /
+   禁止 / しない / MUST / NEVER / 規約 等）の行を抽出し、該当節だけ範囲Readして非機能要件へ
+   転記する。転記元は「転記元: path（節名）」として非機能要件の先頭に明記し、subagentが再読しない
+   根拠にする。簡易要件は`~/.local/state/draftsmith/runs/{repo}/{task-slug}/requirements.md`へ
    書く。rubricとrun directoryのpathはfull laneと同じ文字種・containment規則で検証する。
    `--gated`では要件確定gateを置く。
 2. 対象ファイルを実際にReadしたmainが`templates/reply-contract.md`要素1と同じアンカー付きbriefを

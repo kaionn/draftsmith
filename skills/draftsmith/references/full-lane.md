@@ -6,7 +6,18 @@
 
 `templates/requirements.md`へ8項目を埋め、空欄は「特になし」または「不明」と明記する。全受け入れ
 基準へAC-nを付け、反証可能な予測を2〜3行書く。対象scopeの`AI_CONTEXT.md`、CLAUDE.md、テスト規約
-等を読み、implementerが参照先を開かなくても守れる粒度で非機能要件へ転記する。
+等の規範ファイルは全文Readせず、`rg -n`で見出し行と拘束語（必ず / 禁止 / しない / MUST / NEVER /
+規約 等）を含む行だけを抽出し、該当節だけを範囲指定でReadして、implementerが参照先を開かなくても
+守れる粒度で非機能要件へ転記する。転記した節は要件書5節の先頭に「転記元: path（節名）」として
+明記し、designer / auditor / reviewer-lightが同じファイルを再読しない根拠にする。
+
+```bash
+rg -n '^#|必ず|禁止|しない|MUST|NEVER|規約' AI_CONTEXT.md CLAUDE.md
+```
+
+要件書は`~/.local/state/draftsmith/runs/{repo}/{task-slug}/requirements.md`へ書き、
+`shasum -a 256`のdigestを控える。run directoryのrepo名とtask slugはrubricと同じ文字種・containment
+規則で検証する。
 
 現在の環境で`plan` Skillが作ったPlanをユーザーが指定した場合は、それを一次入力として再利用し、
 同じ調査やAC導出を最初から繰り返さない。現コードと矛盾する箇所だけ再調査する。draftsmith固有の
