@@ -25,8 +25,23 @@
 
 ## Step 2: designer
 
-要件全文を要約せず、`templates/reply-contract.md`の出力契約5要素とともにdesignerへ渡す。agent起動を
-宣言したturn内で実際に起動する。5要素が欠けたreturnは内容を読んで補わず、形式違反として差し戻す。
+起動前に`runs/{repo}/{task-slug}/designer-return.md`の有無を確認する。存在し、先頭行の
+`requirements-sha256`が現在の要件書digestと一致すれば、designerを再起動せずそのファイルを
+再利用してStep 3へ進む（resume後の同一prompt二重起動を防ぐ）。不一致なら再起動する。
+
+```bash
+python3 <skill-root>/scripts/check_reply_contract.py \
+  ~/.local/state/draftsmith/runs/<repo>/<task-slug>/designer-return.md \
+  --requirements ~/.local/state/draftsmith/runs/<repo>/<task-slug>/requirements.md
+```
+
+起動時は要件書のpath（要約せず全文をdesignerがReadする）、要件書digest、書き込み先
+`designer-return.md`のpath、`templates/reply-contract.md`の出力契約をdesignerへ渡す。agent起動を
+宣言したturn内で実際に起動する。returnは「path + 見出しごとの行数 + 要素2・3の全文 + 要素4の表」
+だけで、要素1と要素5はファイルにだけある。mainはreturn後に上の`check_reply_contract.py`を実行し、
+exit 1なら出力の箇条書きだけを添えて形式違反として差し戻す。ファイル本文を読んで補わない。
+形式が通ったら要素2・3・4（return要約にある）だけを読んで判断し、要素1全文はStep 3〜5の
+auditor / implementerに読ませる。
 
 `--gated`では5要素を増やさず、要素1の必須の構造ビジュアル直後へ次の形式で参照専用の表示素材を
 含めるようdesignerへ追加指示する。
@@ -65,29 +80,37 @@ designer以外へこの選択を広げない。
 
 ## Step 3: 独立監査
 
-designer return全文と、確定要件の項目1〜7（背景・目的・スコープ・スコープ外・非機能要件・
-受け入れ基準・未決事項）を独立auditorへ渡す（`--no-audit`時だけ省略）。項目8「参照情報」と
-反証可能な予測は渡さない。前者はdesignerの調査起点であり監査の判断に使われず、後者は下の3.で
-mainだけが使う検査軸で、渡すと独立監査が予測へアンカーする。同時にmainが次を行う。
+`designer-return.md`のpathと、確定要件の項目1〜7（背景・目的・スコープ・スコープ外・非機能要件・
+受け入れ基準・未決事項）、書き込み先`audit.md`のpathを独立auditorへ渡す（`--no-audit`時だけ
+省略）。項目8「参照情報」と反証可能な予測は渡さない。前者はdesignerの調査起点であり監査の判断に
+使われず、後者は下の3.でmainだけが使う検査軸で、渡すと独立監査が予測へアンカーする。auditorの
+returnは「指摘あり N 件 / 指摘なし」の1行とhigh指摘の見出し行だけで、全文は`audit.md`にある。
+mainはhighの対象行を読んで採否を決め、medium/lowは`audit.md`の該当節だけを範囲指定で読む。
+同時にmainが次を行う。
 
-1. 全ACがtraceability表に一度ずつ存在するか。
+1. 全ACがtraceability表に一度ずつ存在するか（`check_reply_contract.py`の結果で足りる）。
 2. mini-ADRの文脈が要件の具体箇所を根拠にしているか。
 3. Step 1の予測との乖離に説明が付くか。
 
 auditor highは反映する。棄却はrootのconsultant protocolを必須とする。medium/lowの採否も理由を
 AI判断へ残す。auditorの予測だけを根拠に確定設計を書き換えず、実装時の注意として扱う。
-typo等だけmainが直接直し、設計判断に触れる差し戻しは違反箇所だけをdesignerへ返す。
+typo等だけmainが直接直し、設計判断に触れる差し戻しは違反箇所だけをdesignerへ返す
+（designerは`designer-return.md`を上書きし、digest行を保つ）。
 
 監査painはrootの`category + cause enum + target kind`だけで記録する。review本文、顧客情報、自由記述
 理由をfingerprintへ入れない。
 
 ## Step 4: 設計確定とplan
 
-確認事項を既存挙動維持・scope最小・可逆性で確定し、designerの推奨を黙って置換しない。自律モードでは
-従来どおりHTMLを作らず、確定briefからStep 5へ進む。
+確認事項を既存挙動維持・scope最小・可逆性で確定し、designerの推奨を黙って置換しない。mainは
+brief全文を書き直さず、auditor指摘の反映分と確認事項の確定値だけを`brief-addendum.md`へ書く。
+addendumは「対象ファイル・対象アンカー・差し替え後の指示」の単位で書き、取り消す指示は
+「取り消し」と明記する。変更が無ければ「変更なし」1行のファイルにする。自律モードでは従来どおり
+HTMLを作らず、`designer-return.md` + `brief-addendum.md`を確定briefとしてStep 5へ進む。
 
-`--gated`では設計確定を理解確認gateとして扱う。`templates/brief-visual.md`に従い、確定要件全文と
-designer returnの参照専用表示素材・5要素を自己完結HTMLへ機械的に投影する。表示順は
+`--gated`では設計確定を理解確認gateとして扱う。`templates/brief-visual.md`に従い、確定要件全文
+（`requirements.md`）とdesigner return（`designer-return.md`）の参照専用表示素材・5要素を
+自己完結HTMLへ機械的に投影する。入力元がファイルになるだけで構造は変えない。表示順は
 「一言要約 → 読む前提 → 構造 → 判断カード → 原文根拠」とし、描画・目視後に人間へ提示する。
 mainは要約、前提、判断、理由、反実仮想、根拠を新しく生成しない。重要判断が0件の場合も
 `重要判断なし`を表示して理解確認gateを継続する。
@@ -103,7 +126,10 @@ mainは要約、前提、判断、理由、反実仮想、根拠を新しく生�
 
 ## Step 5: implementerと中央検証
 
-確定brief全文をimplementerへ渡し、宣言したturn内で起動する。`--gated`の要素1にある
+`designer-return.md`と`brief-addendum.md`のpath（addendumが優先）、書き込み先
+`implementer-report.md`のpathをimplementerへ渡し、宣言したturn内で起動する。brief本文を
+promptへ転記しない。implementerのreturnは「編集ファイル数 / スキップ件数 / 検証の合否」の1行と
+スキップ見出しだけで、詳細は`implementer-report.md`にある。`--gated`の要素1にある
 `<!-- gated-display-material:start; reference-only -->`から
 `<!-- gated-display-material:end -->`までと、従来の構造ビジュアルは参照専用であり、
 編集・追加・削除の適用指示ではないと明示する。implementerはその範囲を実装対象として数えず、

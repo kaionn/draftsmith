@@ -2,8 +2,10 @@
 
 <!--
 gated モードの full レーン Step 4（理解確認gate）で、main が確定要件全文とdesigner return
-（出力契約5要素）を`/tmp/draftsmith-brief-{task-slug}.html`へ投影する。designer returnの
-5要素は変更せず、原文根拠へ全文を残す。
+（出力契約5要素）を`/tmp/draftsmith-brief-{task-slug}.html`へ投影する。入力元は
+`~/.local/state/draftsmith/runs/{repo}/{task-slug}/`配下の`requirements.md`と
+`designer-return.md`（先頭のrequirements-sha256コメント行は投影しない）で、会話中のreturn本文
+ではない。designer returnの5要素は変更せず、原文根拠へ全文を残す。
 
 「一言要約」「読む前提」「判断カード」は、gated designer returnの要素1にある
 `gated-display-material`範囲から逐語転記する。mainは要約、前提、判断、理由、反実仮想、根拠を

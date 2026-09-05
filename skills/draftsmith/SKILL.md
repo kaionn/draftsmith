@@ -148,7 +148,11 @@ rubricで裏を取り、必要な外部変更はHuman gatesへ戻す。
 
 ## Design independence and consultant
 
-fullではdesigner、auditor、implementer、reviewer-lightを役割分離する。`light + 独立audit`では
+fullではdesigner、auditor、implementer、reviewer-lightを役割分離する。各agentの成果物
+（`designer-return.md` / `audit.md` / `brief-addendum.md` / `implementer-report.md`）は
+`~/.local/state/draftsmith/runs/{repo}/{task-slug}/`配下へagent自身が書き、mainへは要約だけを
+返す。mainは全文を再出力せず、次のagentへはpathを渡す。repo名とtask slugはrubricと同じ文字種・
+containment規則で検証する。`light + 独立audit`では
 designerを省く代わりに、mainが書いたbriefに対する独立auditorの監査を省かない。designer提案を覆す時、
 auditor highを棄却する時、軽微修正か設計差戻しか迷う時は、決定前に独立した`consultant`へ
 諮問する。棄却理由と代替案、consultant推奨の採否を記録する。agent起動を宣言したturn内で実際に
