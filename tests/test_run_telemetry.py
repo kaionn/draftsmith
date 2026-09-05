@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -79,20 +80,25 @@ class RunTelemetryTest(unittest.TestCase):
         self.revisions[run_id] = json.loads(result.stdout)["revision"]
         return result
 
-    def finish(self, run_id: str, phase: str = "implemented", *extra: str) -> Path:
-        return Path(
-            self.invoke(
-                TELEMETRY,
-                "finish",
-                "--run-id",
-                run_id,
-                "--final-phase",
-                phase,
-                *extra,
-                "--expect-revision",
-                str(self.revisions[run_id]),
-            ).stdout.strip()
+    def finish_result(
+        self, run_id: str, phase: str = "implemented", *extra: str, check: bool = True
+    ) -> subprocess.CompletedProcess[str]:
+        return self.invoke(
+            TELEMETRY,
+            "finish",
+            "--run-id",
+            run_id,
+            "--final-phase",
+            phase,
+            *extra,
+            "--expect-revision",
+            str(self.revisions[run_id]),
+            check=check,
         )
+
+    def finish(self, run_id: str, phase: str = "implemented", *extra: str) -> Path:
+        # The receipt path is always the first stdout line; bundled extras follow as JSON.
+        return Path(self.finish_result(run_id, phase, *extra).stdout.splitlines()[0].strip())
 
     def test_default_run_does_not_create_delivery_state_and_resumes_active_telemetry(self) -> None:
         before = list((self.repo / ".git").glob("draftsmith-delivery/*.json"))
@@ -353,6 +359,220 @@ class RunTelemetryTest(unittest.TestCase):
             [item["signal"] for item in two["proposals"]], ["delivery_ci_failures"]
         )
         self.assertNotIn("legacy-branch", json.dumps(two))
+
+    def test_start_with_run_card_bundles_card_and_run(self) -> None:
+        result = self.invoke(
+            TELEMETRY,
+            "start",
+            "--lane",
+            "full",
+            "--entry",
+            "requirements",
+            "--goal",
+            "implemented",
+            "--run-card",
+        )
+        payload = json.loads(result.stdout)
+        self.assertEqual(set(payload), {"run_card", "run"})
+        self.assertEqual(payload["run_card"]["lane"], "full")
+        self.assertEqual(payload["run_card"]["references"], ["references/full-lane.md"])
+        self.assertTrue(payload["run_card"]["read_only"])
+        self.assertEqual(payload["run"]["revision"], 0)
+        self.revisions[payload["run"]["run_id"]] = 0
+        # The bundled start is the same start: a second plain start resumes the same run.
+        self.assertEqual(self.start(), payload["run"]["run_id"])
+
+    def test_finish_warns_on_all_zero_counters_unless_forced(self) -> None:
+        run_id = self.start("light")
+        result = self.finish_result(run_id)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("all telemetry counters are 0", result.stderr)
+        forced = self.start("light", "requirements", "pr_open")
+        quiet = self.finish_result(forced, "blocked", "--force-empty")
+        self.assertNotIn("counters are 0", quiet.stderr)
+        counted = self.start("full", "requirements", "review_requested")
+        self.event(counted, "designer_round", "c" * 32)
+        counted_result = self.finish_result(counted, "blocked")
+        self.assertNotIn("counters are 0", counted_result.stderr)
+
+    def test_finish_bundles_promote_check_and_plan_status(self) -> None:
+        plan = self.repo / "plans" / "task.md"
+        plan.parent.mkdir()
+        plan.write_text(
+            "# Plan: task\n\n- Lane: light\n- Status: designed\n- Created: 2026-09-05\n",
+            encoding="utf-8",
+        )
+        ledger_home = Path(self.tempdir.name) / "home"
+        (ledger_home / ".local" / "state" / "draftsmith").mkdir(parents=True)
+        ledger = ledger_home / ".local" / "state" / "draftsmith" / "audit-pains.jsonl"
+        pain = {"ts": "2026-09-05T00:00:00Z", "repo": "r", "category": "scope-creep",
+                "cause": "boundary-expansion", "target_kind": "rubric", "fp": "abcd1234abcd1234"}
+        ledger.write_text((json.dumps(pain) + "\n") * 2, encoding="utf-8")
+        run_id = self.start("light")
+        self.event(run_id, "reviewer_round", "d" * 32)
+        env = dict(os.environ, HOME=str(ledger_home))
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(TELEMETRY),
+                "--repo",
+                str(self.repo),
+                "finish",
+                "--run-id",
+                run_id,
+                "--final-phase",
+                "implemented",
+                "--expect-revision",
+                str(self.revisions[run_id]),
+                "--promote-check",
+                "--plan-file",
+                str(plan),
+                "--plan-status",
+                "implemented",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        receipt_path, extras_line = result.stdout.splitlines()[:2]
+        self.assertTrue(Path(receipt_path).is_file())
+        extras = json.loads(extras_line)
+        self.assertEqual(extras["plan"]["previous"], "designed")
+        self.assertIn("- Status: implemented\n", plan.read_text(encoding="utf-8"))
+        self.assertNotIn("- Status: designed", plan.read_text(encoding="utf-8"))
+        promote = extras["promote_check"]
+        if shutil.which("jq"):
+            self.assertEqual(promote["status"], "ok")
+            self.assertEqual(promote["proposals"], 1)
+        else:
+            self.assertIn(promote["status"], {"ok", "failed", "missing"})
+        # Re-running the bundled finish is safe: the receipt is immutable and the plan stays.
+        again = subprocess.run(
+            [
+                sys.executable,
+                str(TELEMETRY),
+                "--repo",
+                str(self.repo),
+                "finish",
+                "--run-id",
+                run_id,
+                "--final-phase",
+                "implemented",
+                "--expect-revision",
+                str(self.revisions[run_id]),
+                "--plan-file",
+                str(plan),
+                "--plan-status",
+                "implemented",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(again.stdout.splitlines()[0], receipt_path)
+        missing_plan = self.finish_result(
+            self.start("light", "requirements", "pr_open"),
+            "blocked",
+            "--plan-file",
+            str(self.repo / "plans" / "missing.md"),
+            "--plan-status",
+            "implemented",
+            check=False,
+        )
+        # The receipt is already immutable; the missing plan is reported as an error afterwards.
+        self.assertEqual(missing_plan.returncode, 2)
+        self.assertIn("plan file not found", missing_plan.stderr)
+
+    def test_finish_projects_transcript_cost_into_receipt(self) -> None:
+        transcript = Path(self.tempdir.name) / "session.jsonl"
+        rows = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-09-05T00:00:00Z",
+                "message": {
+                    "id": "m1",
+                    "usage": {
+                        "input_tokens": 10,
+                        "cache_creation_input_tokens": 20,
+                        "cache_read_input_tokens": 30,
+                        "output_tokens": 5,
+                    },
+                    "content": [{"type": "text", "text": "SECRET-BODY"}],
+                },
+            },
+            {"type": "user", "timestamp": "2026-09-05T00:00:10Z", "message": {"content": "x"}},
+        ]
+        transcript.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+        run_id = self.start("full")
+        self.event(run_id, "designer_round", "e" * 32)
+        result = self.finish_result(run_id, "implemented", "--cost-from", str(transcript))
+        receipt_path = Path(result.stdout.splitlines()[0])
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        validate_receipt(receipt)
+        self.assertEqual(receipt["cost"]["roles"]["main"]["turns"], 1)
+        self.assertEqual(receipt["cost"]["roles"]["main"]["avg_context_tokens"], 60)
+        self.assertEqual(receipt["cost"]["roles"]["main"]["duration_seconds"], 10)
+        self.assertNotIn("SECRET-BODY", receipt_path.read_text(encoding="utf-8"))
+        self.assertNotIn(str(transcript), receipt_path.read_text(encoding="utf-8"))
+        self.assertEqual(json.loads(result.stdout.splitlines()[1])["cost"], "projected")
+        bad_role = json.loads(json.dumps(receipt))
+        bad_role["cost"]["roles"]["branch-name"] = bad_role["cost"]["roles"]["main"]
+        with self.assertRaises(TelemetryError):
+            validate_receipt(bad_role)
+        missing = self.finish_result(
+            self.start("light", "requirements", "pr_open"),
+            "blocked",
+            "--cost-from",
+            str(Path(self.tempdir.name) / "nope.jsonl"),
+            check=False,
+        )
+        self.assertEqual(missing.returncode, 2)
+
+    def test_receipt_proposals_rank_cost_hotspots_from_cost_blocks(self) -> None:
+        def metrics(cache_read: int, turns: int, output: int) -> dict[str, int]:
+            return {
+                "turns": turns,
+                "avg_context_tokens": 1,
+                "max_context_tokens": 1,
+                "output_tokens": output,
+                "cache_read_tokens": cache_read,
+                "cache_creation_tokens": 0,
+                "duration_seconds": 1,
+                "agents": 1,
+            }
+
+        # Producing cost blocks through finish --cost-from would need two real transcripts;
+        # inject validated cost blocks into finished receipts instead.
+        for roles in (
+            {"main": metrics(100, 10, 5), "designer": metrics(300, 30, 7)},
+            {"main": metrics(100, 20, 9), "auditor": metrics(150, 12, 3)},
+        ):
+            run_id = self.start("full", "requirements", "pr_open")
+            receipt_path = self.finish(run_id, "blocked", "--force-empty")
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            receipt["cost"] = {
+                "schema_version": 1,
+                "roles": roles,
+                "total": metrics(0, 0, 0),
+                "unmapped_subagents": 0,
+            }
+            validate_receipt(receipt)
+            receipt_path.chmod(0o600)
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        payload = json.loads(self.invoke(PROPOSALS).stdout)
+        hotspots = payload["cost_hotspots"]
+        self.assertEqual([item["role"] for item in hotspots], ["designer", "main"])
+        designer, main = hotspots
+        self.assertEqual(designer["evidence"]["receipt_count"], 1)
+        self.assertEqual(designer["evidence"]["cache_read_tokens_total"], 300)
+        self.assertEqual(main["evidence"]["receipt_count"], 2)
+        self.assertEqual(main["evidence"]["cache_read_tokens_total"], 200)
+        self.assertEqual(main["evidence"]["turns_mean"], 15)
+        self.assertEqual(main["evidence"]["output_tokens_mean"], 7)
+        self.assertNotIn("auditor", json.dumps(hotspots))
+        self.assertEqual(payload["proposals"], [])
 
     def test_delivery_metric_api_prevents_finding_double_count(self) -> None:
         self.invoke(STATE, "init", "--goal", "implemented")

@@ -72,8 +72,47 @@ def normalized_counters(payload: dict[str, Any]) -> dict[str, int] | None:
     return None
 
 
+COST_HOTSPOT_LIMIT = 2
+COST_RANK_FIELD = "cache_read_tokens"
+
+
+def cost_hotspots(costs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Top roles by summed cache reads across receipts that carry a cost block. Numbers only."""
+    totals: dict[str, dict[str, int]] = {}
+    for cost in costs:
+        for role, metrics in cost.get("roles", {}).items():
+            bucket = totals.setdefault(
+                role, {"receipt_count": 0, COST_RANK_FIELD: 0, "turns": 0, "output_tokens": 0}
+            )
+            bucket["receipt_count"] += 1
+            for field in (COST_RANK_FIELD, "turns", "output_tokens"):
+                bucket[field] += metrics.get(field, 0)
+    ranked = sorted(totals.items(), key=lambda item: (-item[1][COST_RANK_FIELD], item[0]))
+    hotspots = []
+    for role, bucket in ranked[:COST_HOTSPOT_LIMIT]:
+        count = bucket["receipt_count"]
+        hotspots.append(
+            {
+                "role": role,
+                "evidence": {
+                    "receipt_count": count,
+                    "cache_read_tokens_total": bucket[COST_RANK_FIELD],
+                    "turns_mean": bucket["turns"] // count,
+                    "output_tokens_mean": bucket["output_tokens"] // count,
+                },
+                "target": "skill",
+                "before": f"{role} dominates cache reads across measured runs",
+                "after": f"tighten the {role} agent's batching and survey-scope rules",
+                "expected_effect": f"reduce {role} turns and cache reads per run",
+                "falsification": f"the next measured runs do not reduce {role} cache reads",
+            }
+        )
+    return hotspots
+
+
 def build(receipt_dir: Path) -> dict[str, Any]:
     receipts: list[dict[str, int]] = []
+    costs: list[dict[str, Any]] = []
     versions = {"v1": 0, "v2": 0}
     if receipt_dir.is_dir():
         for path in sorted(receipt_dir.glob("*.json")):
@@ -88,6 +127,8 @@ def build(receipt_dir: Path) -> dict[str, Any]:
                 continue
             versions[f"v{raw['schema_version']}"] += 1
             receipts.append(counters)
+            if isinstance(raw.get("cost"), dict):
+                costs.append(raw["cost"])
     proposals = []
     for counter in TARGETS:
         occurrences = sum(1 for item in receipts if item.get(counter, 0) > 0)
@@ -104,7 +145,13 @@ def build(receipt_dir: Path) -> dict[str, Any]:
                 "falsification": f"the next measured runs do not reduce {counter}",
             }
         )
-    return {"schema_version": 1, "receipts_read": len(receipts), "versions": versions, "proposals": proposals}
+    return {
+        "schema_version": 1,
+        "receipts_read": len(receipts),
+        "versions": versions,
+        "proposals": proposals,
+        "cost_hotspots": cost_hotspots(costs),
+    }
 
 
 def main() -> int:

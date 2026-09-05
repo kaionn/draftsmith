@@ -101,11 +101,13 @@ lane判定は`requirements` entryだけで行い、変更の広がり（軸A）�
 telemetryやcockpitへdelivery phaseを複製しない。
 
 ```bash
-python3 <skill-root>/scripts/run_inspect.py --repo . run-card --lane <full|light|unknown> \
-  --entry <requirements|delivery> [--goal <goal>]
 python3 <skill-root>/scripts/run_telemetry.py --repo . start --lane <full|light|unknown> \
-  --entry <entry> --goal <goal>
+  --entry <entry> --goal <goal> --run-card
 ```
+
+`--run-card`は`run_inspect.py run-card`と同じJSONを`run_card`キーに、startの結果を`run`キーに
+入れた1オブジェクトを返す。run cardとtelemetry startを別々のBashで呼ばない（帳簿の呼び出しは
+1 turnごとに現在のcontext全体を再送するため、束ねる）。
 
 同一worktreeにactive runが1件あれば同じrouteで再開し、複数あれば停止する。返されたopaque
 `run_id`と`revision`を保持する。事象は一意なopaque `event_id`で1回記録し、同じ事象を
@@ -124,10 +126,27 @@ python3 <skill-root>/scripts/run_telemetry.py --repo . event --run-id <id> \
 python3 <skill-root>/scripts/run_telemetry.py --repo . finish --run-id <id> \
   --expect-revision <revision> \
   --final-phase <implemented|pr_open|wait_human_review|review_complete|merge_ready|done|blocked> \
-  [--delivery-key <key>]
+  [--delivery-key <key>] [--promote-check] [--plan-file <path> --plan-status implemented] \
+  [--cost-from <main transcript .jsonl>] [--force-empty]
 ```
 
+finishは終端の帳簿を1コマンドへ束ねる。`--promote-check`は`scripts/audit-ledger.sh promote-check`を
+同じprocessで実行し（script不在・失敗はwarningでfinishは成功）、`--plan-file` + `--plan-status`は
+planの`- Status:`行を書き換え、`--cost-from`はsession transcriptからrole別コスト（turn数・context・
+output・cache・duration）をreceiptの`cost`ブロックへ投影する。countersが全0のfinishは
+`--force-empty`が無い限りstderrへwarningを出す（agentを起動したのにeventを記録していない徴候）。
+transcript pathはhookの`transcript_path`、無ければ
+`~/.claude/projects/<cwdを-区切りにencodeしたdir>/<session>.jsonl`（subagentは
+`<同名dir>/subagents/agent-*.jsonl`）。
+
 retention warningは人間へ提示するだけで、自動削除しない。
+
+## Agent model and effort
+
+Agent起動時に`model` / `effort`を渡さず、agent定義（`agents/*.md`のfrontmatter）の値に任せる。
+唯一の例外は`--fable`指定時のdesignerである。定義より重いmodelで起動する必要があると判断した
+場合は、起動前に理由をAI判断へ記録し、run cardへ表示する。reviewer-light（定義sonnet）を
+opusで起動した実測runがあり、同じreview 2巡で消費が倍になった。
 
 ## Human gates
 
@@ -148,7 +167,11 @@ rubricで裏を取り、必要な外部変更はHuman gatesへ戻す。
 
 ## Design independence and consultant
 
-fullではdesigner、auditor、implementer、reviewer-lightを役割分離する。`light + 独立audit`では
+fullではdesigner、auditor、implementer、reviewer-lightを役割分離する。各agentの成果物
+（`designer-return.md` / `audit.md` / `brief-addendum.md` / `implementer-report.md`）は
+`~/.local/state/draftsmith/runs/{repo}/{task-slug}/`配下へagent自身が書き、mainへは要約だけを
+返す。mainは全文を再出力せず、次のagentへはpathを渡す。repo名とtask slugはrubricと同じ文字種・
+containment規則で検証する。`light + 独立audit`では
 designerを省く代わりに、mainが書いたbriefに対する独立auditorの監査を省かない。designer提案を覆す時、
 auditor highを棄却する時、軽微修正か設計差戻しか迷う時は、決定前に独立した`consultant`へ
 諮問する。棄却理由と代替案、consultant推奨の採否を記録する。agent起動を宣言したturn内で実際に
@@ -160,9 +183,9 @@ auditor highを棄却する時、軽微修正か設計差戻しか迷う時は�
 
 ```bash
 scripts/audit-ledger.sh record <category> <cause-enum> <target-kind> <repo>
-scripts/audit-ledger.sh promote-check
 ```
 
+promote-checkは単独で呼ばず、telemetry finishの`--promote-check`で束ねる。
 同一fingerprintが2件以上ならproposalを生成するが、Skill、Rule、constitutionを自動変更しない。
 適用も撤回も人間の承認を要する。proposalの提示形式と適用後の効果測定は`draftsmith-loop-improve`を
 正本とし、ここへ複製しない。

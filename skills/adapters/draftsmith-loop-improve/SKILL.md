@@ -19,6 +19,9 @@ python3 <draftsmith-root>/scripts/receipt_proposals.py --repo .
 - target: Skill、rubric、CI、driver、repo instructionのいずれか
 - concrete change: before/after
 - expected effectと反証方法
+- `cost_hotspots`: `cost`ブロックを持つreceiptから、cache readの合計が大きいrole上位2件
+  （receipt件数、合計cache read、平均turn、平均output）。どのagentが消費を支配しているかの材料で、
+  これもproposal-only
 
 自動でSkill、Rule、constitutionを変更しない。`design-flow:loop-improve`が利用可能なら、本文では
 なくこの正規化summaryだけを入力として渡せる。未導入ならhelperのproposal形式をそのまま返す。

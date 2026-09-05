@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- designer / auditor / implementerの成果物を「ファイル本体 + return要約」の二層にした。designerは`~/.local/state/draftsmith/runs/{repo}/{task-slug}/designer-return.md`へ5要素の全文を書き（先頭行に要件書のsha256）、returnはpath・行数・要素2〜4だけを返す。auditorは`audit.md`、implementerは`implementer-report.md`へ全文を書く。mainはbrief全文を書き直さず、監査後の差し替え分だけを`brief-addendum.md`に書き、implementerへはpathを渡す。新しい`scripts/check_reply_contract.py`が5要素の見出し、要素4のAC網羅、調査済みファイル小節、requirements digestを機械検査し、digestが一致する既存returnがあればdesignerを再起動しない
+- 5 agent定義（designer / auditor / consultant / implementer / reviewer-light）に調査の一括発行規律を追加した。依存のないRead / Grep / Glob / Bashは同一メッセージで発行し、現物はBashの`cat`ではなくReadで開き、要件書へ転記済みの規範ファイルは再読せず、調査turnの目安（designer 12 / auditor 10 / reviewer-light 8 / implementer 8 / consultant 6）を超えたら現時点の結論で返す
+- designerの要素1末尾に必須小節「調査済みファイル」（`path — 確認した事実（file:line）`）を追加し、auditorはその一覧から読み始めて一覧外は接合面検査に必要な呼び出し元・テストだけを開くようにした。独立性は結論の検証で担保し、探索の重複を省く
+- full lane Step 1とlight lane手順1で、`AI_CONTEXT.md`・CLAUDE.md等の規範ファイルを全文Readしなくした。`rg -n`で見出しと拘束語の行を抽出して該当節だけ範囲Readし、要件書の非機能要件に「転記元: path（節名）」を明記してsubagentが再読しない根拠にする
+- 帳簿のBash呼び出しを束ねた。`run_telemetry.py start --run-card`がrun cardとstartを1つのJSONで返し、`finish --promote-check`がaudit-ledgerのpromote-checkを同じprocessで実行（script不在・失敗はwarning）、`finish --plan-file <path> --plan-status implemented`がplanの`- Status:`行を書き換える
+- SKILL.mdに「Agent起動時に`model` / `effort`を渡さない（例外は`--fable`指定時のdesignerだけ）」を追加した。上書きが必要な場合はAI判断へ理由を記録し、run cardへ表示する
+
+### Added
+
+- `scripts/run_cost.py`: session transcript（mainと`subagents/*.jsonl`）からrole別のturn数、平均・最大context、output、cache read / creation、durationを集計する。本文・path・promptは出力しない。`run_telemetry.py finish --cost-from <main.jsonl>`がこの集計をreceiptの`cost`ブロックへ投影し（schema additive）、`receipt_proposals.py`が`cost_hotspots`としてcache read上位2 roleをproposal材料に載せる。finishはcountersが全0なら`--force-empty`が無い限りwarningを出す
+
 ## [2.1.0] - 2026-09-05
 
 ### Added

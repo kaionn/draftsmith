@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import secrets
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +16,8 @@ from typing import Any
 
 from delivery_state import ENTRIES, GOALS, StateError, load, parse_timestamp, resolve, state_lock
 from git_storage import StorageError, atomic_json, metadata_dir
+from run_cost import ROLES as COST_ROLES
+from run_cost import CostError, collect as collect_cost
 
 
 SCHEMA_VERSION = 2
@@ -57,6 +61,23 @@ RECEIPT_KEYS = {
     "schema_version", "run_id", "lane", "entry", "goal", "final_phase", "counters",
     "delivery_counters", "duration_seconds", "started_at", "finished_at",
 }
+# Additive, optional per-role cost block projected from a session transcript. Numbers and role
+# enums only; schema_version of the receipt stays at 2.
+RECEIPT_OPTIONAL_KEYS = {"cost"}
+COST_METRIC_FIELDS = {
+    "turns",
+    "avg_context_tokens",
+    "max_context_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "cache_creation_tokens",
+    "duration_seconds",
+    "agents",
+}
+COST_KEYS = {"schema_version", "roles", "total", "unmapped_subagents"}
+PLAN_STATUS_RE = re.compile(r"^(\s*-\s*Status:\s*)(\S+)(\s*)$")
+PLAN_STATUSES = ("designed", "implemented")
+AUDIT_LEDGER = Path(__file__).resolve().parents[3] / "scripts" / "audit-ledger.sh"
 
 
 class TelemetryError(RuntimeError):
@@ -114,9 +135,33 @@ def validate_run(run: dict[str, Any]) -> None:
     parse_timestamp(run["started_at"])
 
 
+def validate_cost(cost: Any) -> None:
+    if not isinstance(cost, dict) or set(cost) != COST_KEYS:
+        raise TelemetryError("invalid receipt cost block")
+    if not isinstance(cost.get("schema_version"), int):
+        raise TelemetryError("invalid receipt cost schema version")
+    if not isinstance(cost.get("unmapped_subagents"), int) or cost["unmapped_subagents"] < 0:
+        raise TelemetryError("invalid receipt cost unmapped count")
+    roles = cost.get("roles")
+    if not isinstance(roles, dict) or any(role not in COST_ROLES for role in roles):
+        raise TelemetryError("receipt cost roles must be draftsmith role enums")
+    for metrics in list(roles.values()) + [cost.get("total")]:
+        if not isinstance(metrics, dict) or set(metrics) != COST_METRIC_FIELDS:
+            raise TelemetryError("invalid receipt cost metrics")
+        if any(not isinstance(value, int) or value < 0 for value in metrics.values()):
+            raise TelemetryError("receipt cost metrics must be non-negative integers")
+
+
 def validate_receipt(receipt: dict[str, Any]) -> None:
-    if set(receipt) != RECEIPT_KEYS or receipt.get("schema_version") != SCHEMA_VERSION:
+    keys = set(receipt)
+    if (
+        not RECEIPT_KEYS <= keys
+        or keys - RECEIPT_KEYS - RECEIPT_OPTIONAL_KEYS
+        or receipt.get("schema_version") != SCHEMA_VERSION
+    ):
         raise TelemetryError("invalid v2 receipt schema")
+    if "cost" in receipt:
+        validate_cost(receipt["cost"])
     if not OPAQUE_ID_RE.fullmatch(receipt.get("run_id", "")):
         raise TelemetryError("invalid v2 receipt run id")
     if receipt.get("lane") not in LANES:
@@ -210,9 +255,62 @@ def retention_warning(receipt_dir: Path) -> str | None:
     return None
 
 
+def promote_check() -> dict[str, Any]:
+    """Run audit-ledger promote-check; absence or failure is a warning, never a finish error."""
+    if not AUDIT_LEDGER.is_file():
+        return {"status": "missing", "warning": "audit-ledger.sh not found; promote-check skipped"}
+    try:
+        result = subprocess.run(
+            ["bash", str(AUDIT_LEDGER), "promote-check"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"status": "failed", "warning": f"promote-check failed: {exc}"}
+    if result.returncode != 0:
+        return {
+            "status": "failed",
+            "returncode": result.returncode,
+            "warning": f"promote-check exited {result.returncode}",
+        }
+    proposals = Path(os.path.expanduser("~/.local/state/draftsmith/improvement-proposals"))
+    count = len(list(proposals.glob("*.json"))) if proposals.is_dir() else 0
+    return {"status": "ok", "proposals": count}
+
+
+def update_plan_status(plan_file: Path, status: str) -> dict[str, Any]:
+    if status not in PLAN_STATUSES:
+        raise TelemetryError("plan status must be designed or implemented")
+    if not plan_file.is_file():
+        raise TelemetryError(f"plan file not found: {plan_file}")
+    lines = plan_file.read_text(encoding="utf-8").splitlines(keepends=True)
+    replaced = 0
+    previous: str | None = None
+    for index, line in enumerate(lines):
+        match = PLAN_STATUS_RE.match(line.rstrip("\n"))
+        if match:
+            previous = match.group(2)
+            newline = "\n" if line.endswith("\n") else ""
+            lines[index] = f"{match.group(1)}{status}{newline}"
+            replaced += 1
+    if replaced != 1:
+        raise TelemetryError("plan file must contain exactly one '- Status:' line")
+    plan_file.write_text("".join(lines), encoding="utf-8")
+    return {"path": str(plan_file), "previous": previous, "status": status}
+
+
 def finish(
-    repo: str, run_id: str, final_phase: str, delivery_key: str | None, expected_revision: int
-) -> tuple[Path, str | None]:
+    repo: str,
+    run_id: str,
+    final_phase: str,
+    delivery_key: str | None,
+    expected_revision: int,
+    *,
+    cost: dict[str, Any] | None = None,
+    force_empty: bool = False,
+) -> tuple[Path, list[str]]:
     run_path, receipt_path = paths(repo, run_id, create=False)
     with state_lock(run_path):
         if receipt_path.is_file():
@@ -220,7 +318,8 @@ def finish(
             validate_receipt(existing)
             if existing["final_phase"] != final_phase:
                 raise TelemetryError("finished receipt has a different final phase")
-            return receipt_path, retention_warning(receipt_path.parent)
+            warnings = [w for w in (retention_warning(receipt_path.parent),) if w]
+            return receipt_path, warnings
         run = load_json(run_path)
         validate_run(run)
         if run["revision"] != expected_revision:
@@ -277,10 +376,23 @@ def finish(
             "started_at": run["started_at"],
             "finished_at": finished_at,
         }
+        if cost is not None:
+            receipt["cost"] = cost
         validate_receipt(receipt)
+        warnings: list[str] = []
+        if not force_empty and not any(run["counters"].values()):
+            # Every agent round should have left an event; an all-zero receipt usually means the
+            # run recorded nothing, not that nothing happened.
+            warnings.append(
+                "warning: all telemetry counters are 0; events were not recorded "
+                "(pass --force-empty to silence)"
+            )
         atomic_json(receipt_path, receipt, immutable=True)
         run_path.unlink()
-    return receipt_path, retention_warning(receipt_path.parent)
+    retention = retention_warning(receipt_path.parent)
+    if retention:
+        warnings.append(retention)
+    return receipt_path, warnings
 
 
 def main() -> int:
@@ -291,6 +403,12 @@ def main() -> int:
     start_parser.add_argument("--lane", choices=LANES, required=True)
     start_parser.add_argument("--entry", choices=ENTRIES, required=True)
     start_parser.add_argument("--goal", choices=GOALS, required=True)
+    start_parser.add_argument(
+        "--run-card",
+        action="store_true",
+        help="print the read-only run card together with the start result in one JSON object",
+    )
+    start_parser.add_argument("--through-review", action="store_true")
     event_parser = commands.add_parser("event")
     event_parser.add_argument("--run-id", required=True)
     event_parser.add_argument("--event", choices=EVENTS, required=True)
@@ -301,17 +419,47 @@ def main() -> int:
     finish_parser.add_argument("--final-phase", choices=sorted(TERMINAL_PHASES), required=True)
     finish_parser.add_argument("--delivery-key")
     finish_parser.add_argument("--expect-revision", type=int, required=True)
+    finish_parser.add_argument(
+        "--promote-check",
+        action="store_true",
+        help="run scripts/audit-ledger.sh promote-check after finishing (failure is a warning)",
+    )
+    finish_parser.add_argument("--plan-file", type=Path)
+    finish_parser.add_argument("--plan-status", choices=PLAN_STATUSES)
+    finish_parser.add_argument(
+        "--cost-from",
+        type=Path,
+        metavar="MAIN_JSONL",
+        help="project per-role cost from a session transcript into the receipt",
+    )
+    finish_parser.add_argument(
+        "--force-empty",
+        action="store_true",
+        help="silence the warning for receipts whose counters are all 0",
+    )
     args = parser.parse_args()
     try:
         if args.command == "start":
+            card: dict[str, Any] | None = None
+            if args.run_card:
+                # run_inspect imports this module; import lazily to keep run_inspect importable.
+                from run_inspect import run_card
+
+                card = run_card(args.entry, args.goal, args.through_review, args.lane)
             result = start(args.repo, args.lane, args.entry, args.goal)
             run = load_json(result)
-            print(
-                json.dumps(
-                    {"run_id": result.stem, "path": str(result), "revision": run["revision"]},
-                    sort_keys=True,
+            started = {"run_id": result.stem, "path": str(result), "revision": run["revision"]}
+            if card is None:
+                print(json.dumps(started, sort_keys=True))
+            else:
+                print(
+                    json.dumps(
+                        {"run_card": card, "run": started},
+                        ensure_ascii=False,
+                        indent=2,
+                        sort_keys=True,
+                    )
                 )
-            )
         elif args.command == "event":
             result, revision = event(
                 args.repo,
@@ -322,15 +470,38 @@ def main() -> int:
             )
             print(json.dumps({"path": str(result), "revision": revision}, sort_keys=True))
         else:
-            result, warning = finish(
+            if (args.plan_file is None) != (args.plan_status is None):
+                raise TelemetryError("--plan-file and --plan-status must be given together")
+            cost: dict[str, Any] | None = None
+            if args.cost_from is not None:
+                try:
+                    cost = collect_cost(args.cost_from)
+                except CostError as exc:
+                    raise TelemetryError(f"cannot collect cost: {exc}") from exc
+            result, warnings = finish(
                 args.repo,
                 args.run_id,
                 args.final_phase,
                 args.delivery_key,
                 args.expect_revision,
+                cost=cost,
+                force_empty=args.force_empty,
             )
             print(result)
-            if warning:
+            extras: dict[str, Any] = {}
+            # The bundled bookkeeping runs after the receipt is immutable, so a re-run of the same
+            # finish command is safe: the receipt is returned as-is and the extras are repeated.
+            if args.promote_check:
+                extras["promote_check"] = promote_check()
+                if "warning" in extras["promote_check"]:
+                    warnings.append(extras["promote_check"]["warning"])
+            if args.plan_file is not None:
+                extras["plan"] = update_plan_status(args.plan_file, args.plan_status)
+            if cost is not None:
+                extras["cost"] = "projected" if "cost" in load_json(result) else "skipped"
+            if extras:
+                print(json.dumps(extras, ensure_ascii=False, sort_keys=True))
+            for warning in warnings:
                 print(warning, file=sys.stderr)
     except (StateError, StorageError, TelemetryError) as exc:
         print(f"error: {exc}", file=sys.stderr)
