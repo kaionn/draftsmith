@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-05
+
 ### Added
 
 - delivery runをsession単位でpark / resumeできるようにした。`delivery_state.py park`が散文のpark noteをGit metadata配下へ0600で書き、`parked_head_sha`と`park_round`、`parked_revision`を記録する（phaseは変えない）。`resume-brief`が次のsessionへphase、PR、HEAD差分、park後のstate差分、note、reconcile checklistを返す
@@ -204,7 +206,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/kaionn/draftsmith/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/kaionn/draftsmith/compare/v1.15.0...v2.0.0
 [1.15.0]: https://github.com/kaionn/draftsmith/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/kaionn/draftsmith/compare/v1.13.1...v1.14.0
