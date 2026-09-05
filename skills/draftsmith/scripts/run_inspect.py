@@ -60,6 +60,7 @@ def doctor(repo: str) -> dict[str, object]:
     required_references = ("full-lane", "light-lane", "artifacts", "delivery-loop")
     required_scripts = (
         "delivery_state.py",
+        "delivery_hook.py",
         "run_telemetry.py",
         "run_inspect.py",
         "evidence_packet.py",

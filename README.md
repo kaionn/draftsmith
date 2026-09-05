@@ -114,6 +114,12 @@ replies, resolves, and ambiguous decisions stop at a human gate. Delivery state 
 metadata so CI and review waits can resume in a later run without dirtying the working tree. A
 cross-process lock plus optimistic `revision` check rejects concurrent stale updates.
 
+Park the run where the next input is external: write a prose note, run `delivery_state.py park`,
+and close the session. The next session gets that note back from the SessionStart hook, together
+with the phase, the PR, and whether HEAD moved since the park. A Stop hook blocks only when the
+run sits in `wait_human_review`, `review_complete`, or `merge_ready` and either the state or HEAD
+has moved since the last park, so review round trips that never touch HEAD still count as unparked.
+
 ```
 /diff-review                 # annotated review screen for uncommitted changes
 /diff-review --staged        # staged changes only
@@ -350,6 +356,11 @@ PR feedbackは実行前に分類する。実装指摘はtargeted implementer + r
 別runから再開できる。cross-process lockとoptimistic `revision`照合により、Claude/Codexの
 古いstate更新を拒否する。
 
+次の入力が外部になる地点でrunをparkする。散文のnoteを書いて`delivery_state.py park`を叩き、
+sessionを閉じる。次のsessionはSessionStart hookからnoteとphase、PR、park後のHEAD差分を受け取る。
+Stop hookは`wait_human_review` / `review_complete` / `merge_ready`で、前回のparkからstateかHEADの
+どちらかが動いているときだけblockする。HEADを動かさないreview往復も未parkとして扱う。
+
 開始前診断と再開状況は読み取り専用で確認できる。
 
 ```bash
@@ -476,7 +487,7 @@ scripts/audit-ledger.sh         # 監査 pain 台帳（record / promote-check）
 agents/diff-analyzer.md         # 差分の意味グルーピング（読み取り専用）
 agents/evidence-reviewer.md     # 証跡スクショの独立判定（読み取り専用・vision）
 skills/draftsmith/SKILL.md      # routing・不変条件・段階ロード
-skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR・plan ファイル・rubric・brief-visual
+skills/draftsmith/templates/    # 要件書・出力契約・mini-ADR・plan ファイル・rubric・brief-visual・park note
 skills/draftsmith/references/   # full/light/artifact/deliveryの条件付き手順
 skills/draftsmith/scripts/      # state・telemetry・inspect・evidence・cockpit helper
 skills/adapters/draftsmith-delivery-driver/SKILL.md # single-driver lease付きの再開adapter
@@ -493,6 +504,9 @@ skills/verify-report/templates/ # レポートテンプレート
 skills/adapters/                # タスク供給元ごとの橋渡し層
 skills/adapters/draftsmith-next/SKILL.md # harness の Plans.md から 1 タスクを draftsmith へ橋渡し（/draftsmith-next）
 tests/test_delivery_state.py    # delivery stateのphase・worktree・schema回帰テスト
+tests/test_hooks.py             # SessionStart / Stop hookのsubprocess回帰テスト
+hooks/draftsmith-hooks.json     # plugin hooks宣言（SessionStart / Stop）
+hooks/*.sh                      # hook wrapper（失敗しても exit 0 で黙る）
 ```
 
 ## License
