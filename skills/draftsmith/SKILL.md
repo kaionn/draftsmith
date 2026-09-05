@@ -135,6 +135,13 @@ planの`- Status:`行を書き換える。
 
 retention warningは人間へ提示するだけで、自動削除しない。
 
+## Agent model and effort
+
+Agent起動時に`model` / `effort`を渡さず、agent定義（`agents/*.md`のfrontmatter）の値に任せる。
+唯一の例外は`--fable`指定時のdesignerである。定義より重いmodelで起動する必要があると判断した
+場合は、起動前に理由をAI判断へ記録し、run cardへ表示する。reviewer-light（定義sonnet）を
+opusで起動した実測runがあり、同じreview 2巡で消費が倍になった。
+
 ## Human gates
 
 モードとgoalにかかわらず、破壊的操作、外部システム書込み、commit、pushは現在時点の人間確認を
