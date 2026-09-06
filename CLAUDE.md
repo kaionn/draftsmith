@@ -13,7 +13,8 @@
 - `skills/draftsmith/scripts/run_telemetry.py` — opaque IDのv2 run telemetryとimmutable receipt
 - `skills/draftsmith/scripts/receipt_proposals.py` — v1/v2 receipt混在のproposal-only分析
 - `skills/draftsmith/scripts/proposal_lifecycle.py` — human decisionと5-run効果測定
-- `skills/draftsmith/scripts/run_inspect.py` — 読み取り専用doctor / status / run-card
+- `skills/draftsmith/scripts/run_inspect.py` — 読み取り専用doctor / status / run-card / summary
+- `skills/draftsmith/scripts/receipt_summary.py` — 蓄積済みreceiptの読み取り専用な横断集計（summaryの実体）
 - `skills/draftsmith/scripts/evidence_packet.py` — clean full-head・AC被覆付きlocal evidence
 - `skills/draftsmith/scripts/review_cockpit.py` — 既存artifactのlocal index
 - `skills/adapters/draftsmith-delivery-driver/SKILL.md` — single-driver lease付き再開adapter

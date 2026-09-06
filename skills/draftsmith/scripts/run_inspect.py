@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only doctor, status, and run-card views for draftsmith."""
+"""Read-only doctor, status, run-card, and summary views for draftsmith."""
 
 from __future__ import annotations
 
@@ -66,6 +66,7 @@ def doctor(repo: str) -> dict[str, object]:
         "evidence_packet.py",
         "review_cockpit.py",
         "proposal_lifecycle.py",
+        "receipt_summary.py",
     )
     required.update(
         {
@@ -207,6 +208,7 @@ def main() -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor")
     commands.add_parser("status")
+    commands.add_parser("summary")
     card = commands.add_parser("run-card")
     card.add_argument("--entry", choices=("requirements", "delivery"), default="requirements")
     card.add_argument("--goal", choices=("implemented", "pr_open", "review_requested", "review_complete", "merge_ready", "merged"))
@@ -218,6 +220,12 @@ def main() -> int:
             payload = doctor(args.repo)
         elif args.command == "status":
             payload = status(args.repo)
+        elif args.command == "summary":
+            # 遅延 import。module scope で読むと receipt_summary.py が欠けたとき
+            # doctor が required_scripts: false を返す前に ModuleNotFoundError で落ちる。
+            from receipt_summary import summary
+
+            payload = summary(args.repo)
         else:
             payload = run_card(args.entry, args.goal, args.through_review, args.lane)
         print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))

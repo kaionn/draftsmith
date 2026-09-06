@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -79,6 +80,17 @@ class RunUxTest(unittest.TestCase):
         self.assertTrue(doctor["required"]["required_scripts"])
         self.assertEqual(status["state"], "not_started")
         self.assertEqual(before, after)
+
+    def test_doctor_reports_missing_optional_script_instead_of_crashing(self) -> None:
+        tree = self.base / "plugin"
+        ignore = shutil.ignore_patterns("__pycache__")
+        shutil.copytree(ROOT / "skills", tree / "skills", ignore=ignore)
+        shutil.copytree(ROOT / "agents", tree / "agents", ignore=ignore)
+        scripts = tree / "skills" / "draftsmith" / "scripts"
+        (scripts / "receipt_summary.py").unlink()
+        doctor = json.loads(self.invoke(scripts / "run_inspect.py", "--repo", str(self.repo), "doctor").stdout)
+        self.assertFalse(doctor["required"]["required_scripts"])
+        self.assertFalse(doctor["ready"])
 
     def test_status_reads_state_without_updating_revision(self) -> None:
         self.invoke(STATE, "--repo", str(self.repo), "init", "--goal", "review_complete")

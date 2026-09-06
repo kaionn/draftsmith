@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `run_inspect.py summary` を追加した。Git metadata配下に蓄積したv1/v2 receiptを横断集計し、lane別件数・goal別件数・`final_phase`分布・`cost`ブロックを持つreceiptのrole別token合計（turns / output / cache read / cache creation）・読めなかったreceiptのスキップ件数を、読み取り専用のJSONで返す。集計本体は新しい`skills/draftsmith/scripts/receipt_summary.py`にあり、receiptの読み取りと検証は`run_telemetry.load_json` / `validate_receipt`、保存先の解決は`git_storage.metadata_dir`を再利用する。壊れたreceiptが混じっても全体は落ちずスキップ件数に数える
+
+### Fixed
+
+- `run_inspect.py`が`receipt_summary`をmodule scopeでimportしていたため、`receipt_summary.py`が欠けると`doctor`が`required_scripts: false`を返す前に`ModuleNotFoundError`で落ちていた。importを`summary`サブコマンドの分岐内へ遅らせ、`doctor`が自身の検査対象に依存しないようにした。`tests/test_run_ux.py`に、scriptを1本欠いたtreeで`doctor`がexit 0のまま`required_scripts: false`を返すことを確認する回帰テストを追加した
+
 ## [3.0.0] - 2026-09-05
 
 ### Changed

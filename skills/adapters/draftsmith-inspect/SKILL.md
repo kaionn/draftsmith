@@ -1,6 +1,6 @@
 ---
 name: draftsmith-inspect
-description: draftsmithの開始前診断、現在phase・次の操作・human gate確認、run開始前カード表示を読み取り専用で行う。「draftsmith doctor」「draftsmith status」「draftsmithの実行内容を先に見せて」で使う。
+description: draftsmithの開始前診断、現在phase・次の操作・human gate確認、run開始前カード表示、過去receiptの横断集計を読み取り専用で行う。「draftsmith doctor」「draftsmith status」「draftsmithの実行内容を先に見せて」「過去のrunを集計して」で使う。
 user-invocable: true
 ---
 
@@ -11,6 +11,7 @@ user-invocable: true
 ```bash
 python3 <draftsmith-root>/scripts/run_inspect.py --repo . doctor
 python3 <draftsmith-root>/scripts/run_inspect.py --repo . status
+python3 <draftsmith-root>/scripts/run_inspect.py --repo . summary
 python3 <draftsmith-root>/scripts/run_inspect.py --repo . run-card --lane full --entry requirements
 python3 <draftsmith-root>/scripts/run_inspect.py --repo . run-card --lane unknown \
   --entry delivery --goal review_complete
@@ -22,6 +23,10 @@ python3 <draftsmith-root>/scripts/run_cost.py --transcript <main session .jsonl>
 turn数、平均・最大context、output、cache read / creation、durationを集計する。本文・path・promptは
 出力しない。transcript pathはhookの`transcript_path`、無ければ
 `~/.claude/projects/<cwdを-区切りにencodeしたdir>/<session>.jsonl`。
+
+`summary`は`.git`配下のdelivery receiptを横断してlane別・goal別の件数、`final_phase`分布、
+`cost`ブロックを持つreceiptのrole別token合計を返す。v1/v2混在に耐え、壊れたreceiptは
+`skipped`に数えて全体を落とさない。
 
 このSkillは診断専用である。directory作成、lock取得、state初期化・更新、GitHub照会・外部投稿を
 行わない。delivery stateが無くてもactive telemetryがあれば`inner_loop`、どちらも無ければ
