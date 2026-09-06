@@ -19,7 +19,7 @@
 - `skills/draftsmith/scripts/review_cockpit.py` — 既存artifactのlocal index
 - `skills/adapters/draftsmith-delivery-driver/SKILL.md` — single-driver lease付き再開adapter
 - `skills/adapters/draftsmith-loop-improve/SKILL.md` — receiptからproposal-only改善案を作るadapter
-- `skills/adapters/draftsmith-inspect/SKILL.md` — doctor / status / run-card入口
+- `skills/adapters/draftsmith-inspect/SKILL.md` — doctor / status / run-card / summary入口
 - `skills/adapters/draftsmith-review-cockpit/SKILL.md` — review cockpit入口
 - `skills/diff-review/SKILL.md` — 解説つき差分レビュー画面の生成（/diff-review）
 - `skills/plan-commit/SKILL.md` — plan ファイルの畳み込みコミット（/plan-commit）
