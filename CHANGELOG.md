@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-09-12
+
 ### Added
 
 - `draftsmith-review-fleet`を追加した。生成jobによる別セッションの複数独立観点→集約→独立auditとreview-only境界を定義し、`review_fleet.py`が依頼作成・起動可能role・成果物schema・snapshot・依存digest・収束条件を検査する。delivery mainが依頼digestをpinしてから成果物を再検証してattestするため、fleet必須workflowを単一の自己申告結果で迂回できない。特定repo・外部Skill・terminal multiplexerや任意コマンド実行への依存は追加しない
@@ -236,7 +238,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/kaionn/draftsmith/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/kaionn/draftsmith/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/kaionn/draftsmith/compare/v2.1.0...v3.0.0
 [2.1.0]: https://github.com/kaionn/draftsmith/compare/v2.0.0...v2.1.0
