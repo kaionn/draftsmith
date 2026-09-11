@@ -29,6 +29,15 @@ body に設計文書」の形でコミットメッセージへ畳み込み、コ
 - 対象ファイルを Read し、`Status:` を確認する。`designed` のまま（実装未完の疑い）
   なら、その旨を警告してから続けるか確認する
 
+## Delivery review連携（Draftsmith deliveryから呼ばれた場合だけ）
+
+呼出元のdelivery state keyを引き継ぎ、stage直前に
+`python3 <plugin-root>/skills/draftsmith/scripts/delivery_state.py --repo . --key <KEY> check-pre-review --gate stage`、
+commit直前には同じhelperの`check-pre-review --gate commit`を実行する。失敗したらstage/commitせずmainへ
+戻す。review合格と人間承認は別で、以下のpreview承認は省略しない。対象planはstateの`plan_file`と一致する
+untrackedの一時artifactに限る（snapshot対象外）。plan本文は従来どおりmessage previewで人間が確認する。
+別のdelivery stateを作らず、単独利用時のrepo規約やhuman gateも緩めない。
+
 ## Step 2: コミット対象の確認
 
 `git status --porcelain` と `git diff --stat`（+ `--cached`）で現状を把握する:

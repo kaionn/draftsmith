@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -118,6 +119,11 @@ PARK_REMINDER_PHASES = ("wait_human_review", "review_complete", "merge_ready")
 # brief header and the reconcile checklist.
 PARK_NOTE_MAX_CHARS = 8000
 
+REVIEW_POLICY = ".draftsmith/review-policy.json"
+WORKFLOW_RE = re.compile(r"[a-z][a-z0-9_-]{0,63}")
+LOCAL_REVIEW_PHASES = {"implemented", "review_triage", "review_fix", "blocked"}
+DELIVERY_REVIEW_GATES = {"commit", "push", "pr_create", "pr_update"}
+
 
 class StateError(RuntimeError):
     pass
@@ -199,10 +205,13 @@ def validate_state(state: dict[str, Any]) -> None:
         "created_at",
         "updated_at",
     }
-    if set(state) != required:
+    optional = {"pre_delivery_reviews"}
+    if required - set(state) or set(state) - required - optional:
         missing = sorted(required - set(state))
-        extra = sorted(set(state) - required)
+        extra = sorted(set(state) - required - optional)
         raise StateError(f"invalid state keys: missing={missing}, extra={extra}")
+    if "pre_delivery_reviews" in state:
+        validate_pre_delivery_reviews(state["pre_delivery_reviews"])
     if state["schema_version"] != SCHEMA_VERSION:
         raise StateError(f"unsupported schema_version: {state['schema_version']}")
     if state["entry"] not in ENTRIES or state["goal"] not in GOALS or state["phase"] not in PHASES:
@@ -384,7 +393,233 @@ def resolve_routing(entry: str, goal: str | None, through_review: bool) -> dict[
     return {"entry": entry, "goal": goal}
 
 
-def command_init(args: argparse.Namespace, path: Path, branch: str, key: str) -> None:
+def validate_workflows(workflows: Any) -> None:
+    if not isinstance(workflows, list) or any(
+        not isinstance(item, str) or not WORKFLOW_RE.fullmatch(item) for item in workflows
+    ):
+        raise StateError("workflows must be a list of lowercase opaque identifiers (1-64 characters)")
+    if len(workflows) != len(set(workflows)):
+        raise StateError("duplicate workflow identifier")
+
+
+def validate_pre_delivery_reviews(reviews: Any) -> None:
+    if not isinstance(reviews, dict):
+        raise StateError("pre_delivery_reviews must be an object")
+    validate_workflows(list(reviews))
+    for result in reviews.values():
+        required = {"status", "snapshot", "evidence_sha256"}
+        if not isinstance(result, dict) or required - set(result) or set(result) - required - {"fleet_request_sha256"}:
+            raise StateError("invalid pre-delivery review fields")
+        if "fleet_request_sha256" in result and (
+            not isinstance(result["fleet_request_sha256"], str)
+            or not FINGERPRINT_RE.fullmatch(result["fleet_request_sha256"])
+        ):
+            raise StateError("invalid fleet request digest")
+        if result["status"] not in ("pending", "blocked", "converged"):
+            raise StateError("invalid pre-delivery review status")
+        for field in ("snapshot", "evidence_sha256"):
+            value = result[field]
+            if value is not None and (
+                not isinstance(value, str) or not FINGERPRINT_RE.fullmatch(value)
+            ):
+                raise StateError(f"review {field} must be a SHA-256 digest or null")
+        if result["status"] == "converged" and (
+            result["snapshot"] is None or result["evidence_sha256"] is None
+        ):
+            raise StateError("converged review requires snapshot and evidence digest")
+
+
+def policy_workflows(root: Path) -> list[str]:
+    policy = root / REVIEW_POLICY
+    if policy.parent.is_symlink() or policy.is_symlink():
+        raise StateError("review policy must not be a symlink")
+    if not policy.exists():
+        return []
+    if not policy.is_file():
+        raise StateError("review policy must be a regular file")
+    try:
+        data = json.loads(policy.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise StateError("cannot read review policy") from exc
+    if not isinstance(data, dict) or set(data) != {"required_workflows"}:
+        raise StateError("review policy must contain only required_workflows; commands are not supported")
+    validate_workflows(data["required_workflows"])
+    return data["required_workflows"]
+
+
+def sync_review_requirements(state: dict[str, Any], root: Path, workflows: list[str] | None = None) -> None:
+    required = policy_workflows(root) + (workflows or [])
+    if not required:
+        return
+    reviews = state.setdefault("pre_delivery_reviews", {})
+    for workflow in required:
+        reviews.setdefault(workflow, {"status": "pending", "snapshot": None, "evidence_sha256": None})
+
+
+def review_git(root: Path, *args: str) -> bytes:
+    result = subprocess.run(["git", "-C", str(root), *args], capture_output=True, check=False)
+    if result.returncode:
+        raise StateError("cannot inspect review snapshot with git")
+    return result.stdout
+
+
+def review_snapshot(
+    root: Path, *, match_tree: str | None = None, plan_file: str | None = None,
+) -> str:
+    """Hash delivery content without staging, filters, external diff, or following symlinks.
+
+    HEAD is deliberately not part of the digest: committing the reviewed content must not
+    invalidate it. Missing paths are omitted so committing a deletion also preserves it.
+    """
+    entries = review_git(root, "ls-files", "-v", "-z").split(b"\0")
+    if any(entry and entry[:1] != b"H" for entry in entries):
+        raise StateError("review snapshot requires a non-sparse, merged index without assume-unchanged")
+    if any(
+        entry.startswith(b"160000 ")
+        for entry in review_git(root, "ls-files", "--stage", "-z").split(b"\0")
+    ):
+        raise StateError("review snapshot does not support submodules")
+    paths = set(review_git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z").split(b"\0"))
+    if plan_file is not None:
+        validate_plan_file(plan_file)
+        plan_path = os.fsencode(plan_file)
+        if plan_path in {entry[2:] for entry in entries if entry}:
+            raise StateError("pre-delivery review requires the temporary plan to remain untracked")
+        # plan-commit folds this local design artifact into the human-previewed message,
+        # then removes it. It is not staged delivery content; no glob exclusions are allowed.
+        paths.discard(plan_path)
+    digest = hashlib.sha256(b"draftsmith-review-snapshot-v1\0")
+    manifest = {}
+    object_format = review_git(root, "rev-parse", "--show-object-format").strip()
+    if object_format not in (b"sha1", b"sha256"):
+        raise StateError("unsupported git object format")
+    try:
+        for raw in sorted(paths - {b""}):
+            relative = Path(os.fsdecode(raw))
+            if relative.is_absolute() or ".." in relative.parts:
+                raise StateError("unsafe review snapshot path")
+            target = root / relative
+            if any(parent.is_symlink() for parent in target.parents if parent != root and root in parent.parents):
+                raise StateError("review snapshot must not traverse symlink directories")
+            try:
+                mode = target.lstat().st_mode
+            except FileNotFoundError:
+                continue
+            if stat.S_ISLNK(mode):
+                kind, content = b"symlink", os.fsencode(os.readlink(target))
+            elif stat.S_ISREG(mode):
+                kind = b"executable" if mode & 0o111 else b"file"
+                content = target.read_bytes()
+            else:
+                raise StateError("review snapshot does not support submodules or special files")
+            git_mode = {b"symlink": b"120000", b"executable": b"100755", b"file": b"100644"}[kind]
+            blob = hashlib.new(object_format.decode(), b"blob " + str(len(content)).encode() + b"\0" + content)
+            manifest[raw] = (git_mode, blob.hexdigest().encode())
+            for part in (raw, kind, hashlib.sha256(content).digest()):
+                digest.update(len(part).to_bytes(8, "big"))
+                digest.update(part)
+    except OSError as exc:
+        raise StateError("cannot read review snapshot") from exc
+    if match_tree is not None:
+        # Compare raw blobs, not `git diff`: even --no-textconv diff can run clean filters.
+        # Filtered/EOL-normalized worktrees conservatively fail rather than execute filters
+        # or claim equivalence of content the reviewer did not see.
+        if match_tree not in {"index", "HEAD"}:
+            raise StateError("unsupported review comparison tree")
+        for tree in (("index", "HEAD") if match_tree == "HEAD" else ("index",)):
+            listing = (
+                review_git(root, "ls-files", "--stage", "-z") if tree == "index"
+                else review_git(root, "ls-tree", "-r", "-z", "HEAD")
+            )
+            expected = {}
+            for entry in listing.split(b"\0"):
+                if entry:
+                    metadata, name = entry.split(b"\t", 1)
+                    mode, middle, last = metadata.split()
+                    expected[name] = (mode, middle if tree == "index" else last)
+            if manifest != expected:
+                raise StateError(f"pre-delivery gate requires reviewed content to match {tree}")
+    return digest.hexdigest()
+
+
+def check_pre_delivery_reviews(
+    state: dict[str, Any], root: Path, *, clean: bool = False, staged: bool = False,
+) -> None:
+    reviews = state.get("pre_delivery_reviews", {})
+    if not reviews:
+        return
+    snapshot = review_snapshot(
+        root, match_tree="HEAD" if clean else "index" if staged else None, plan_file=state["plan_file"],
+    )
+    if any(result["status"] != "converged" or result["snapshot"] != snapshot for result in reviews.values()):
+        raise StateError("pre-delivery review required: missing, unconverged, or stale result")
+
+
+def command_pre_delivery_review(args: argparse.Namespace, path: Path, root: Path) -> None:
+    with state_lock(path):
+        state = load(path)
+        if args.command != "check-pre-review":
+            require_revision(state, args.expect_revision)
+        workflows = args.workflow if args.command == "require-pre-review" else []
+        validate_workflows(workflows)
+        sync_review_requirements(state, root, workflows)
+        if args.command == "check-pre-review":
+            check_pre_delivery_reviews(
+                state, root, clean=args.gate not in {"stage", "commit"}, staged=args.gate == "commit",
+            )
+            output({"review_gate": "passed", "authorization": False})
+            return
+        if args.command == "bind-review-fleet":
+            from review_fleet import FleetError, request_file
+            try:
+                request, fingerprint = request_file(Path(args.request_file))
+            except (FleetError, OSError) as exc:
+                raise StateError(str(exc)) from exc
+            if request["workflow"] != args.workflow or request["plan_file"] != state["plan_file"]:
+                raise StateError("fleet workflow or plan mismatch")
+            if request["snapshot"] != review_snapshot(root, plan_file=state["plan_file"]):
+                raise StateError("fleet request snapshot is stale")
+            validate_workflows([args.workflow])
+            state.setdefault("pre_delivery_reviews", {})[args.workflow] = {
+                "status": "pending", "snapshot": None, "evidence_sha256": None,
+                "fleet_request_sha256": fingerprint,
+            }
+        if args.command == "record-pre-review":
+            if args.workflow not in state.get("pre_delivery_reviews", {}):
+                raise StateError("register the required workflow before recording its result")
+            if not FINGERPRINT_RE.fullmatch(args.snapshot) or args.snapshot != review_snapshot(
+                root, plan_file=state["plan_file"],
+            ):
+                raise StateError("review snapshot changed; rerun review on current content")
+            previous = state["pre_delivery_reviews"][args.workflow]
+            evidence = args.evidence_sha256
+            if "fleet_request_sha256" in previous:
+                invalidating = args.status != "converged" and not args.fleet_request and not args.fleet_results and evidence is None
+                if not invalidating:
+                    if not args.fleet_request or not args.fleet_results or evidence is not None:
+                        raise StateError("bound fleet requires request/results validation, not a free-form attestation")
+                    from review_fleet import FleetError, inspect
+                    try:
+                        packet = inspect(Path(args.fleet_request), Path(args.fleet_results))
+                    except (FleetError, OSError) as exc:
+                        raise StateError(str(exc)) from exc
+                    if packet["request_sha256"] != previous["fleet_request_sha256"] or packet["snapshot"] != args.snapshot:
+                        raise StateError("fleet request or snapshot mismatch")
+                    if args.status == "converged" and not packet["converged"]:
+                        raise StateError("fleet has not converged")
+                    evidence = packet["evidence_sha256"]
+            elif args.fleet_request or args.fleet_results:
+                raise StateError("bind the trusted fleet request before importing results")
+            state["pre_delivery_reviews"][args.workflow] = {
+                **previous, "status": args.status, "snapshot": args.snapshot, "evidence_sha256": evidence,
+            }
+        state["revision"] += 1
+        state["updated_at"] = utc_now()
+        write_atomic(path, state)
+    output(state)
+
+
+def command_init(args: argparse.Namespace, path: Path, branch: str, key: str, root: Path) -> None:
     with state_lock(path):
         if path.exists():
             output(load(path))
@@ -414,17 +649,22 @@ def command_init(args: argparse.Namespace, path: Path, branch: str, key: str) ->
             "created_at": now,
             "updated_at": now,
         }
+        sync_review_requirements(state, root)
+        if state.get("pre_delivery_reviews") and state["phase"] not in LOCAL_REVIEW_PHASES:
+            raise StateError("required pre-delivery review: init at implemented or blocked, then review")
         write_atomic(path, state)
     output(state)
 
 
-def command_update(args: argparse.Namespace, path: Path) -> None:
+def command_update(args: argparse.Namespace, path: Path, root: Path) -> None:
     with state_lock(path):
         state = load(path)
         if args.expect_revision != state["revision"]:
             raise StateError(
                 f"revision conflict: expected {args.expect_revision}, current {state['revision']}"
             )
+        previous_phase = state["phase"]
+        sync_review_requirements(state, root)
         changed = False
         if args.phase is not None:
             current = state["phase"]
@@ -455,6 +695,15 @@ def command_update(args: argparse.Namespace, path: Path) -> None:
             changed = True
         if not changed:
             raise StateError("update requires at least one changed field")
+        # Evaluate the resulting state, including same-phase updates and pending-gate-only
+        # updates. blocked/back edges must not be an escape hatch into delivery.
+        if state["phase"] not in LOCAL_REVIEW_PHASES or state["pending_gate"] in DELIVERY_REVIEW_GATES:
+            clean = (
+                state["phase"] in {"prepare_pr", "pr_open"}
+                or state["pending_gate"] in {"push", "pr_create", "pr_update"}
+                or (previous_phase == "commit_gate" and state["phase"] == "wait_ci_review")
+            )
+            check_pre_delivery_reviews(state, root, clean=clean)
         state["revision"] += 1
         state["updated_at"] = utc_now()
         write_atomic(path, state)
@@ -750,6 +999,25 @@ def build_parser() -> argparse.ArgumentParser:
     update_parser.add_argument("--observation", choices=OBSERVATIONS)
     update_parser.add_argument("--increment-review-cycles", action="store_true")
 
+    commands.add_parser("review-snapshot", help="hash current delivery content without executing a workflow")
+    required_parser = commands.add_parser("require-pre-review", help="add mandatory local review workflows")
+    required_parser.add_argument("--expect-revision", type=int, required=True)
+    required_parser.add_argument("--workflow", action="append", required=True)
+    local_review = commands.add_parser("record-pre-review", help="record an observed local review result")
+    local_review.add_argument("--expect-revision", type=int, required=True)
+    local_review.add_argument("--workflow", required=True)
+    local_review.add_argument("--snapshot", required=True)
+    local_review.add_argument("--status", choices=("pending", "blocked", "converged"), required=True)
+    local_review.add_argument("--evidence-sha256")
+    local_review.add_argument("--fleet-request")
+    local_review.add_argument("--fleet-results")
+    bind_fleet = commands.add_parser("bind-review-fleet", help="pin a main-owned review-only fleet request")
+    bind_fleet.add_argument("--expect-revision", type=int, required=True)
+    bind_fleet.add_argument("--workflow", required=True)
+    bind_fleet.add_argument("--request-file", required=True)
+    check_review = commands.add_parser("check-pre-review", help="check reviews immediately before a human-gated action")
+    check_review.add_argument("--gate", choices=sorted(DELIVERY_REVIEW_GATES | {"stage"}), required=True)
+
     fingerprint_parser = commands.add_parser("fingerprint", help="hash a review thread id and head SHA")
     fingerprint_parser.add_argument("--thread-id", required=True)
     fingerprint_parser.add_argument("--head-sha", required=True)
@@ -800,14 +1068,18 @@ def main() -> int:
         elif args.command == "path":
             print(path)
         elif args.command == "init":
-            command_init(args, path, branch, key)
+            command_init(args, path, branch, key, root)
         elif args.command == "show":
             output(load(path))
         elif args.command == "validate":
             state = load(path)
             print(f"valid schema={state['schema_version']} phase={state['phase']} key={state['key']}")
         elif args.command == "update":
-            command_update(args, path)
+            command_update(args, path, root)
+        elif args.command == "review-snapshot":
+            print(review_snapshot(root, plan_file=load(path)["plan_file"]))
+        elif args.command in {"require-pre-review", "record-pre-review", "check-pre-review", "bind-review-fleet"}:
+            command_pre_delivery_review(args, path, root)
         elif args.command == "record-review":
             if not FINGERPRINT_RE.fullmatch(args.fingerprint):
                 raise StateError("fingerprint must be a 64 character lowercase hex digest")

@@ -119,13 +119,23 @@ class PluginManifestTest(unittest.TestCase):
             self.assertTrue((ROOT / "skills" / "draftsmith" / "references" / reference).is_file())
 
     def test_ux_adapter_skills_are_discoverable(self) -> None:
-        for name in ("draftsmith-inspect", "draftsmith-review-cockpit"):
+        for name in ("draftsmith-inspect", "draftsmith-review-cockpit", "draftsmith-review-fleet"):
             path = ROOT / "skills" / "adapters" / name / "SKILL.md"
             text = path.read_text(encoding="utf-8")
             self.assertTrue(text.startswith("---\n"))
             frontmatter = text.split("---", 2)[1]
             self.assertIn(f"\nname: {name}\n", f"\n{frontmatter}\n")
             self.assertIn("\nuser-invocable: true\n", f"\n{frontmatter}\n")
+
+    def test_review_fleet_is_discovered_and_contract_links_resolve(self) -> None:
+        plugin = json.loads((ROOT / ".claude-plugin/plugin.json").read_text())
+        base = ROOT / "skills/adapters/draftsmith-review-fleet"
+        self.assertTrue(any(base.parent == ROOT / location for location in plugin["skills"]))
+        skill = (base / "SKILL.md").read_text()
+        self.assertTrue((base / "../../draftsmith/references/review-fleet.md").resolve().is_file())
+        self.assertTrue((base / "../../draftsmith/scripts/review_fleet.py").resolve().is_file())
+        for marker in ("Worker mode", "Coordinator mode", "fresh-session", "review-only", "bind-review-fleet"):
+            self.assertIn(marker, skill)
 
 
 if __name__ == "__main__":

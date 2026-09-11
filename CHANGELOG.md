@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `draftsmith-review-fleet`を追加した。生成jobによる別セッションの複数独立観点→集約→独立auditとreview-only境界を定義し、`review_fleet.py`が依頼作成・起動可能role・成果物schema・snapshot・依存digest・収束条件を検査する。delivery mainが依頼digestをpinしてから成果物を再検証してattestするため、fleet必須workflowを単一の自己申告結果で迂回できない。特定repo・外部Skill・terminal multiplexerや任意コマンド実行への依存は追加しない
+- 汎用的なpre-delivery review gateを追加した。repo規約由来の必須workflowを宣言JSONまたは明示登録でdelivery stateへ取り込み、全workflowの収束と対象content snapshotの一致がなければcommit/push/PRを含む前進phaseへの遷移を拒否する。必須条件の削除によるskip、古いreview結果の再利用、部分commitのpush/PR準備を検査し、実行コマンドは設定・stateに持たせない。`reviewer-light`、独立human gate、review-onlyの外部workflowとの責務を明文化した。必須宣言のない既存runとschema 1/2の読み取りは維持する
+
 ## [3.1.0] - 2026-09-06
 
 ### Added
