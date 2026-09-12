@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-09-12
+
 ### Fixed
 
 - review policy JSONの重複keyをfail closedで拒否し、必須review登録の後勝ちによる迂回を防いだ。review fleetの重複key・未知key・symlink境界と、ignored untracked contentを除外するsnapshot挙動の回帰テストも追加した
@@ -242,7 +244,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 監査 3 層（トレーサビリティ機械照合・ADR スポットチェック・予測乖離検査）
 - 覆し明文化プロトコル（designer 提案・レビュー指摘の却下に理由と代替案を必須化）
 
-[Unreleased]: https://github.com/kaionn/draftsmith/compare/v3.2.0...HEAD
+[Unreleased]: https://github.com/kaionn/draftsmith/compare/v3.2.1...HEAD
+[3.2.1]: https://github.com/kaionn/draftsmith/compare/v3.2.0...v3.2.1
 [3.2.0]: https://github.com/kaionn/draftsmith/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/kaionn/draftsmith/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/kaionn/draftsmith/compare/v2.1.0...v3.0.0
