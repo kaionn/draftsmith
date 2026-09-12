@@ -429,6 +429,15 @@ def validate_pre_delivery_reviews(reviews: Any) -> None:
             raise StateError("converged review requires snapshot and evidence digest")
 
 
+def reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise StateError("duplicate JSON key in review policy")
+        result[key] = value
+    return result
+
+
 def policy_workflows(root: Path) -> list[str]:
     policy = root / REVIEW_POLICY
     if policy.parent.is_symlink() or policy.is_symlink():
@@ -438,7 +447,9 @@ def policy_workflows(root: Path) -> list[str]:
     if not policy.is_file():
         raise StateError("review policy must be a regular file")
     try:
-        data = json.loads(policy.read_text(encoding="utf-8"))
+        data = json.loads(
+            policy.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicate_json_keys
+        )
     except (OSError, ValueError) as exc:
         raise StateError("cannot read review policy") from exc
     if not isinstance(data, dict) or set(data) != {"required_workflows"}:

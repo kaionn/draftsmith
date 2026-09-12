@@ -121,6 +121,24 @@ class PreDeliveryReviewTest(unittest.TestCase):
                 change()
                 self.call("check-pre-review", "--gate", "stage", ok=False)
 
+    def test_ignored_untracked_content_preserves_snapshot_and_attestation(self) -> None:
+        (self.repo / ".gitignore").write_text("ignored/\n")
+        self.fixture_commit()
+        self.record()
+        snapshot = self.call("review-snapshot").stdout
+        attestation = self.state()["pre_delivery_reviews"]["quality-review"]
+        ignored = self.repo / "ignored/content.txt"
+        ignored.parent.mkdir()
+
+        for content in ("created\n", "modified\n"):
+            with self.subTest(content=content):
+                ignored.write_text(content)
+                self.assertEqual(self.call("review-snapshot").stdout, snapshot)
+                self.call("check-pre-review", "--gate", "stage")
+                self.assertEqual(
+                    self.state()["pre_delivery_reviews"]["quality-review"], attestation
+                )
+
     def test_late_result_cannot_stamp_new_content(self) -> None:
         old = self.call("review-snapshot").stdout.strip()
         (self.repo / "code.txt").write_text("new content")
@@ -168,6 +186,30 @@ class PreDeliveryReviewTest(unittest.TestCase):
         self.mutate("update", "--phase", "commit_gate", ok=False)
         self.record("security-review")
         self.mutate("update", "--phase", "commit_gate")
+
+    def test_duplicate_policy_key_is_rejected_on_initial_init(self) -> None:
+        self.policy.write_text(
+            '{"required_workflows":["security-review"],"required_workflows":[]}'
+        )
+
+        result = self.call("--key", "duplicate-policy", "init", "--goal", "pr_open", ok=False)
+
+        self.assertIn("duplicate JSON key", result.stderr)
+        state_path = Path(self.call("--key", "duplicate-policy", "path").stdout.strip())
+        self.assertFalse(state_path.exists())
+
+    def test_duplicate_policy_key_is_rejected_for_existing_run_with_new_workflow(self) -> None:
+        before = self.state()
+        self.assertNotIn("security-review", before["pre_delivery_reviews"])
+        self.policy.write_text(
+            '{"required_workflows":["security-review"],"required_workflows":[]}'
+        )
+
+        result = self.mutate("update", "--phase", "commit_gate", ok=False)
+
+        self.assertIn("duplicate JSON key", result.stderr)
+        self.policy.write_text(json.dumps({"required_workflows": ["quality-review"]}))
+        self.assertEqual(self.state(), before)
 
     def test_policy_cannot_init_past_gate(self) -> None:
         for phase in ("commit_gate", "prepare_pr", "pr_open", "wait_ci_review", "done"):

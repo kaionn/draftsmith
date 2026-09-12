@@ -221,6 +221,67 @@ class ReviewFleetTest(unittest.TestCase):
         (self.directory / "brief.md").write_text("changed rubric")
         self.inspect(ok=False)
 
+    def test_otherwise_valid_duplicate_request_and_result_keys_are_rejected(self) -> None:
+        request = self.request_path.read_text()
+        self.request_path.write_text(
+            request.replace(
+                '      "id": "correctness",\n      "kind": "perspective"',
+                '      "id": "correctness",\n      "id": "correctness",\n      "kind": "perspective"',
+                1,
+            )
+        )
+        with self.assertRaisesRegex(fleet.FleetError, "invalid artifact JSON") as raised:
+            fleet.request_file(self.request_path)
+        self.assertRegex(str(raised.exception.__cause__), "duplicate JSON key")
+
+        self.request_path.write_bytes(fleet.encode(self.request))
+        self.complete()
+        correctness = self.results / "correctness.json"
+        result = correctness.read_text()
+        correctness.write_text(
+            result.replace(
+                '      "severity": "blocker",\n      "summary": "check boundary"',
+                '      "severity": "blocker",\n      "summary": "check boundary",\n      "summary": "check boundary"',
+                1,
+            )
+        )
+        with self.assertRaisesRegex(fleet.FleetError, "invalid artifact JSON") as raised:
+            fleet.inspect(self.request_path, self.results)
+        self.assertRegex(str(raised.exception.__cause__), "duplicate JSON key")
+
+    def test_unknown_request_key_is_rejected(self) -> None:
+        request = dict(self.request, command="must-not-run")
+        self.request_path.write_bytes(fleet.encode(request))
+
+        with self.assertRaisesRegex(fleet.FleetError, "invalid artifact fields"):
+            fleet.request_file(self.request_path)
+
+    def test_request_brief_and_results_symlinks_are_rejected(self) -> None:
+        request_target = Path(self.h.temp.name) / "request-target.json"
+        request_target.write_bytes(self.request_path.read_bytes())
+        self.request_path.unlink()
+        self.request_path.symlink_to(request_target)
+        with self.assertRaisesRegex(fleet.FleetError, "non-symlink file"):
+            fleet.request_file(self.request_path)
+
+        self.request_path.unlink()
+        self.request_path.write_bytes(request_target.read_bytes())
+        brief = self.directory / "brief.md"
+        brief_target = Path(self.h.temp.name) / "brief-target.md"
+        brief_target.write_bytes(brief.read_bytes())
+        brief.unlink()
+        brief.symlink_to(brief_target)
+        with self.assertRaisesRegex(fleet.FleetError, "non-symlink file"):
+            fleet.request_file(self.request_path)
+
+        brief.unlink()
+        brief.write_bytes(brief_target.read_bytes())
+        results_target = Path(self.h.temp.name) / "results-target"
+        self.results.rename(results_target)
+        self.results.symlink_to(results_target, target_is_directory=True)
+        with self.assertRaisesRegex(fleet.FleetError, "non-symlink directory"):
+            fleet.inspect(self.request_path, self.results, partial=True)
+
     def test_request_shapes_size_symlink_and_duplicates_fail_closed(self) -> None:
         original = fleet.encode(self.request)
         bad = [dict(self.request, roles=self.request["roles"][1:]), dict(self.request, plan_file=[]),

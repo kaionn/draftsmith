@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- review policy JSONの重複keyをfail closedで拒否し、必須review登録の後勝ちによる迂回を防いだ。review fleetの重複key・未知key・symlink境界と、ignored untracked contentを除外するsnapshot挙動の回帰テストも追加した
+
 ## [3.2.0] - 2026-09-12
 
 ### Added
